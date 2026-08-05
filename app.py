@@ -44,6 +44,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Helper function to convert black logo to white safely
+def make_logo_white(img):
+    try:
+        img = img.convert("RGBA")
+        r, g, b, a = img.split()
+        rgb_image = Image.merge('RGB', (r, g, b))
+        inverted_image = ImageOps.invert(rgb_image)
+        r2, g2, b2 = inverted_image.split()
+        return Image.merge('RGBA', (r2, g2, b2, a))
+    except Exception:
+        return img
+
 # Logo Handling
 st.sidebar.header("🖼️ Branding Settings")
 logo_upload = st.sidebar.file_uploader("Upload Logo (PNG)", type=["png", "jpg", "jpeg"])
@@ -68,18 +80,10 @@ elif os.path.exists(default_logo_path):
 with top_col1:
     if logo_img is not None:
         try:
-            proc_logo = logo_img.convert("RGBA")
-            datas = proc_logo.getdata()
-            newData = []
-            for item in datas:
-                if item[0] < 120 and item[1] < 120 and item[2] < 120 and item[3] > 30:
-                    newData.append((255, 255, 255, item[3]))
-                else:
-                    newData.append(item)
-            proc_logo.putdata(newData)
-            st.image(proc_logo, use_container_width=True)
+            proc_logo = make_logo_white(logo_img)
+            st.image(proc_logo, width=180)
         except Exception:
-            st.image(logo_img, use_container_width=True)
+            st.image(logo_img, width=180)
 
 with top_col2:
     st.markdown('<div class="brand-header"><h1 class="brand-title">CV PIONEERING TESTIMONIES</h1></div>', unsafe_allow_html=True)
@@ -106,7 +110,7 @@ if "slides" not in st.session_state:
 st.sidebar.markdown("---")
 st.sidebar.header("📑 Manage Carousel Slides")
 
-if st.sidebar.button("➕ Add New Slide", use_container_width=True):
+if st.sidebar.button("➕ Add New Slide"):
     st.session_state.slides.append({
         "title": f"SLIDE {len(st.session_state.slides) + 1}",
         "content": "Enter your story or testimony details here...",
@@ -115,50 +119,36 @@ if st.sidebar.button("➕ Add New Slide", use_container_width=True):
     })
 
 if len(st.session_state.slides) > 1:
-    if st.sidebar.button("🗑️ Remove Last Slide", use_container_width=True):
+    if st.sidebar.button("🗑️ Remove Last Slide"):
         st.session_state.slides.pop()
 
 # --- Image Generation Logic ---
 def create_slide_image(slide, logo):
-    # Canvas 1080x1080 (Square Format)
     img_width, img_height = 1080, 1080
     
     if slide["image"] is not None:
-        bg_image = Image.open(slide["image"]).convert("RGBA")
-        bg_image = ImageOps.fit(bg_image, (img_width, img_height), Image.Resampling.LANCZOS)
-        
-        # Brightness
-        enhancer = ImageEnhance.Brightness(bg_image)
-        bg_image = enhancer.enhance(slide["brightness"])
+        try:
+            bg_image = Image.open(slide["image"]).convert("RGBA")
+            bg_image = ImageOps.fit(bg_image, (img_width, img_height), Image.Resampling.LANCZOS)
+            enhancer = ImageEnhance.Brightness(bg_image)
+            bg_image = enhancer.enhance(slide["brightness"])
+        except Exception:
+            bg_image = Image.new("RGBA", (img_width, img_height), (14, 23, 19, 255))
     else:
-        # Default Green Gradient Canvas
         bg_image = Image.new("RGBA", (img_width, img_height), (14, 23, 19, 255))
 
-    # Dark Overlay
     overlay = Image.new("RGBA", (img_width, img_height), (0, 0, 0, int(255 * overlay_opacity)))
     canvas = Image.alpha_composite(bg_image, overlay)
     draw = ImageDraw.Draw(canvas)
 
-    # Add Logo at Top Left
     if logo is not None:
         try:
-            l_img = logo.convert("RGBA")
-            # Auto light mode conversion
-            datas = l_img.getdata()
-            newData = []
-            for item in datas:
-                if item[0] < 120 and item[1] < 120 and item[2] < 120 and item[3] > 30:
-                    newData.append((255, 255, 255, item[3]))
-                else:
-                    newData.append(item)
-            l_img.putdata(newData)
-            
+            l_img = make_logo_white(logo)
             l_img.thumbnail((220, 90), Image.Resampling.LANCZOS)
             canvas.paste(l_img, (60, 60), l_img)
         except Exception:
             pass
 
-    # Draw Fonts / Text
     try:
         title_font = ImageFont.truetype("arial.ttf", title_font_size)
         body_font = ImageFont.truetype("arial.ttf", text_font_size)
@@ -166,17 +156,14 @@ def create_slide_image(slide, logo):
         title_font = ImageFont.load_default()
         body_font = ImageFont.load_default()
 
-    # Title
     title_text = slide["title"].upper()
     wrapped_title = textwrap.fill(title_text, width=22)
     draw.multiline_text((60, 220), wrapped_title, fill="#2ECC71", font=title_font, spacing=10)
 
-    # Content Body
     content_text = slide["content"]
     wrapped_content = textwrap.fill(content_text, width=38)
     draw.multiline_text((60, 520), wrapped_content, fill="#FFFFFF", font=body_font, spacing=12)
 
-    # Footer Accent Bar
     draw.rectangle([60, 1000, 1020, 1006], fill="#2ECC71")
 
     return canvas.convert("RGB")
@@ -204,7 +191,7 @@ with col_preview:
     for idx, slide in enumerate(st.session_state.slides):
         slide_img = create_slide_image(slide, logo_img)
         generated_images.append((f"slide_{idx+1}.png", slide_img))
-        st.image(slide_img, caption=f"Slide {idx+1} Preview", use_container_width=True)
+        st.image(slide_img, caption=f"Slide {idx+1} Preview")
 
 # --- Download Section ---
 st.markdown("---")
@@ -217,8 +204,7 @@ if len(generated_images) == 1:
         label="💾 Download Single Slide (PNG)",
         data=buf.getvalue(),
         file_name="pioneering_testimony.png",
-        mime="image/png",
-        use_container_width=True
+        mime="image/png"
     )
 else:
     zip_buf = io.BytesIO()
@@ -232,6 +218,5 @@ else:
         label=f"📦 Download All {len(generated_images)} Slides Carousel (ZIP)",
         data=zip_buf.getvalue(),
         file_name="testimonies_carousel.zip",
-        mime="application/zip",
-        use_container_width=True
+        mime="application/zip"
     )
