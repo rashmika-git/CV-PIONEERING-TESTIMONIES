@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling (Premium Dark Studio UI)
+# Custom Styling (Fast & Responsive)
 st.markdown("""
 <style>
     .stApp {
@@ -54,7 +54,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Reliable Font Direct URLs (CDN Links)
+# Reliable Fonts
 FONT_URLS = {
     "Roboto": "https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-700-normal.ttf",
     "Montserrat": "https://cdn.jsdelivr.net/fontsource/fonts/montserrat@latest/latin-700-normal.ttf",
@@ -64,7 +64,7 @@ FONT_URLS = {
     "Playfair Display": "https://cdn.jsdelivr.net/fontsource/fonts/playfair-display@latest/latin-700-normal.ttf"
 }
 
-# Network Safe Dynamic Font Fetcher
+# Cached Dynamic Font Fetcher
 @st.cache_resource
 def get_custom_font(font_name, size):
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -96,7 +96,7 @@ def get_custom_font(font_name, size):
 
     return ImageFont.load_default()
 
-# Helper function to convert black logo to white safely
+# Helper function for logo
 def make_logo_white(img):
     try:
         img = img.convert("RGBA")
@@ -140,23 +140,23 @@ with top_col1:
 with top_col2:
     st.markdown('<div class="brand-header"><h1 class="brand-title">CV PIONEERING TESTIMONIES</h1></div>', unsafe_allow_html=True)
 
-# --- Global Settings Sidebar ---
+# Global Settings
 selected_font = st.sidebar.selectbox("Choose Global Font Style", list(FONT_URLS.keys()), index=0, key="cfg_font_family")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📐 Logo & Background Overlay")
-logo_scale = st.sidebar.slider("Logo Size", 100, 400, 240, key="cfg_logo_size")
-pos_logo_x = st.sidebar.slider("Logo Position X", 0, 900, 60, key="pos_l_x")
-pos_logo_y = st.sidebar.slider("Logo Position Y", 0, 900, 60, key="pos_l_y")
+logo_scale = st.sidebar.slider("Logo Size", 100, 400, 240, step=10, key="cfg_logo_size")
+pos_logo_x = st.sidebar.slider("Logo Position X", 0, 900, 60, step=10, key="pos_l_x")
+pos_logo_y = st.sidebar.slider("Logo Position Y", 0, 900, 60, step=10, key="pos_l_y")
 overlay_opacity = st.sidebar.slider("Dark Overlay Opacity", 0.0, 0.95, 0.45, 0.05, key="cfg_overlay")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("➖ Bottom Accent Line")
 line_color = st.sidebar.color_picker("Line Color", "#2ECC71", key="cfg_line_color")
-pos_line_y = st.sidebar.slider("Line Y Position", 800, 1080, 1020, key="pos_line_y")
+pos_line_y = st.sidebar.slider("Line Y Position", 800, 1080, 1020, step=10, key="pos_line_y")
 line_thickness = st.sidebar.slider("Line Thickness", 2, 20, 6, key="cfg_line_thick")
 
-# Initial Slide Structure with Per-Element Custom Settings
+# Session State
 if "slides" not in st.session_state:
     st.session_state.slides = [
         {
@@ -176,7 +176,7 @@ if "slides" not in st.session_state:
         }
     ]
 
-# Manage Slides Sidebar Controls
+# Manage Slides
 st.sidebar.markdown("---")
 st.sidebar.header("📑 Carousel Slides")
 
@@ -201,14 +201,15 @@ if len(st.session_state.slides) > 1:
     if st.sidebar.button("🗑️ Remove Last Slide"):
         st.session_state.slides.pop()
 
-# --- Image Generation Logic ---
-def create_slide_image(slide, logo):
-    img_width, img_height = 1080, 1080
-    
+# --- Fast Canvas Generator Function ---
+def render_canvas(slide, logo, target_size=(1080, 1080)):
+    img_width, img_height = target_size
+    scale_factor = img_width / 1080.0  # Scale positions proportionally for previews
+
     if slide.get("image") is not None:
         try:
             bg_image = Image.open(slide["image"]).convert("RGBA")
-            bg_image = ImageOps.fit(bg_image, (img_width, img_height), Image.Resampling.LANCZOS)
+            bg_image = ImageOps.fit(bg_image, (img_width, img_height), Image.Resampling.BILINEAR)
             enhancer = ImageEnhance.Brightness(bg_image)
             bg_image = enhancer.enhance(slide.get("brightness", 1.0))
         except Exception:
@@ -216,30 +217,29 @@ def create_slide_image(slide, logo):
     else:
         bg_image = Image.new("RGBA", (img_width, img_height), (14, 23, 19, 255))
 
-    # Dark Overlay
     overlay = Image.new("RGBA", (img_width, img_height), (0, 0, 0, int(255 * overlay_opacity)))
     canvas = Image.alpha_composite(bg_image, overlay)
     draw = ImageDraw.Draw(canvas)
 
-    # Logo Display
+    # Logo
     if logo is not None:
         try:
             l_img = make_logo_white(logo)
-            l_img.thumbnail((logo_scale, int(logo_scale * 0.5)), Image.Resampling.LANCZOS)
-            canvas.paste(l_img, (pos_logo_x, pos_logo_y), l_img)
+            scaled_scale = int(logo_scale * scale_factor)
+            l_img.thumbnail((scaled_scale, int(scaled_scale * 0.5)), Image.Resampling.BILINEAR)
+            canvas.paste(l_img, (int(pos_logo_x * scale_factor), int(pos_logo_y * scale_factor)), l_img)
         except Exception:
             pass
 
-    # Dynamic Font Loader
-    t_size = slide.get("title_size", 65)
-    b_size = slide.get("content_size", 36)
+    # Scaled Fonts
+    t_size = int(slide.get("title_size", 65) * scale_factor)
+    b_size = int(slide.get("content_size", 36) * scale_factor)
     
-    title_font = get_custom_font(selected_font, t_size)
-    body_font = get_custom_font(selected_font, b_size)
+    title_font = get_custom_font(selected_font, max(10, t_size))
+    body_font = get_custom_font(selected_font, max(10, b_size))
 
-    # Wrap Calculation
-    wrap_width_title = max(10, int(9500 / t_size))
-    wrap_width_body = max(15, int(11000 / b_size))
+    wrap_width_title = max(10, int(9500 / slide.get("title_size", 65)))
+    wrap_width_body = max(15, int(11000 / slide.get("content_size", 36)))
 
     raw_title = str(slide.get("title", ""))
     title_lines = raw_title.upper().split('\n')
@@ -255,75 +255,77 @@ def create_slide_image(slide, logo):
 
     # Draw Title Text
     draw.multiline_text(
-        (slide.get("title_x", 60), slide.get("title_y", 220)), 
+        (int(slide.get("title_x", 60) * scale_factor), int(slide.get("title_y", 220) * scale_factor)), 
         wrapped_title, 
         fill=slide.get("title_color", "#2ECC71"), 
         font=title_font, 
-        spacing=12, 
+        spacing=int(12 * scale_factor), 
         align=align_mode
     )
 
     # Draw Body Text
     draw.multiline_text(
-        (slide.get("content_x", 60), slide.get("content_y", 520)), 
+        (int(slide.get("content_x", 60) * scale_factor), int(slide.get("content_y", 520) * scale_factor)), 
         wrapped_content, 
         fill=slide.get("content_color", "#FFFFFF"), 
         font=body_font, 
-        spacing=16, 
+        spacing=int(16 * scale_factor), 
         align=align_mode
     )
 
-    # Bottom Line Accent
-    draw.rectangle([60, pos_line_y - line_thickness, 1020, pos_line_y], fill=line_color)
+    # Accent Line
+    draw.rectangle([
+        int(60 * scale_factor), 
+        int((pos_line_y - line_thickness) * scale_factor), 
+        int(1020 * scale_factor), 
+        int(pos_line_y * scale_factor)
+    ], fill=line_color)
 
     return canvas.convert("RGB")
 
-# --- Main Editor & Live Preview Grid ---
+# Main Interface
 col_edit, col_preview = st.columns([1.1, 0.9])
-
-generated_images = []
 
 with col_edit:
     st.subheader("✏️ Content & Element Editors")
     for idx, slide in enumerate(st.session_state.slides):
         with st.expander(f"📌 Slide {idx + 1}: {slide['title'][:25]}", expanded=(idx == 0)):
             
-            # --- 1. TITLE INPUT & LOCAL SETTINGS ---
+            # Title Settings
             st.markdown("**1. Title Headline**")
             slide["title"] = st.text_area(f"Title Text #{idx+1}", value=slide["title"], height=70, key=f"title_{idx}")
             
             t_col1, t_col2, t_col3, t_col4 = st.columns([2, 1.2, 1.5, 1.5])
             with t_col1:
-                slide["title_size"] = st.slider("Title Size", 30, 110, slide.get("title_size", 65), key=f"tsize_{idx}")
+                slide["title_size"] = st.slider("Title Size", 30, 110, slide.get("title_size", 65), step=2, key=f"tsize_{idx}")
             with t_col2:
                 slide["title_color"] = st.color_picker("Color", slide.get("title_color", "#2ECC71"), key=f"tcol_{idx}")
             with t_col3:
-                slide["title_x"] = st.number_input("Position X", 0, 1000, slide.get("title_x", 60), key=f"tx_{idx}")
+                slide["title_x"] = st.number_input("Pos X", 0, 1000, slide.get("title_x", 60), step=10, key=f"tx_{idx}")
             with t_col4:
-                slide["title_y"] = st.number_input("Position Y", 0, 1000, slide.get("title_y", 220), key=f"ty_{idx}")
+                slide["title_y"] = st.number_input("Pos Y", 0, 1000, slide.get("title_y", 220), step=10, key=f"ty_{idx}")
 
             st.markdown("---")
 
-            # --- 2. BODY TEXT INPUT & LOCAL SETTINGS ---
+            # Body Settings
             st.markdown("**2. Story Text / Content**")
             slide["content"] = st.text_area(f"Story Text #{idx+1}", value=slide["content"], height=110, key=f"content_{idx}")
             
             b_col1, b_col2, b_col3, b_col4 = st.columns([2, 1.2, 1.5, 1.5])
             with b_col1:
-                slide["content_size"] = st.slider("Body Size", 18, 70, slide.get("content_size", 36), key=f"bsize_{idx}")
+                slide["content_size"] = st.slider("Body Size", 18, 70, slide.get("content_size", 36), step=2, key=f"bsize_{idx}")
             with b_col2:
                 slide["content_color"] = st.color_picker("Color", slide.get("content_color", "#FFFFFF"), key=f"bcol_{idx}")
             with b_col3:
-                slide["content_x"] = st.number_input("Position X", 0, 1000, slide.get("content_x", 60), key=f"bx_{idx}")
+                slide["content_x"] = st.number_input("Pos X", 0, 1000, slide.get("content_x", 60), step=10, key=f"bx_{idx}")
             with b_col4:
-                slide["content_y"] = st.number_input("Position Y", 0, 1000, slide.get("content_y", 520), key=f"by_{idx}")
+                slide["content_y"] = st.number_input("Pos Y", 0, 1000, slide.get("content_y", 520), step=10, key=f"by_{idx}")
 
-            # Alignment Control
             slide["text_align"] = st.radio("Text Alignment", ["left", "center", "right"], index=["left", "center", "right"].index(slide.get("text_align", "left")), horizontal=True, key=f"align_{idx}")
 
             st.markdown("---")
 
-            # --- 3. BACKGROUND IMAGE & BRIGHTNESS ---
+            # Background Image Settings
             st.markdown("**3. Background Image & Brightness**")
             img_file = st.file_uploader(f"Upload Image #{idx+1}", type=["jpg", "png", "jpeg"], key=f"img_{idx}")
             if img_file is not None:
@@ -334,34 +336,41 @@ with col_edit:
 with col_preview:
     st.subheader("👁️ Live Interactive Preview")
     for idx, slide in enumerate(st.session_state.slides):
-        slide_img = create_slide_image(slide, logo_img)
-        generated_images.append((f"slide_{idx+1}.png", slide_img))
-        st.image(slide_img, caption=f"Slide {idx+1} Preview")
+        # FAST PREVIEW: Rendered at 450x450 for ultra-fast response speed
+        preview_img = render_canvas(slide, logo_img, target_size=(450, 450))
+        st.image(preview_img, caption=f"Slide {idx+1} Preview")
 
-# --- Export & Download Section ---
+# --- Export & Download Section (Full 1080x1080 Resolution) ---
 st.markdown("---")
-st.subheader("📥 Export Options")
+st.subheader("📥 Export Options (High Quality 1080p)")
 
-if len(generated_images) == 1:
-    buf = io.BytesIO()
-    generated_images[0][1].save(buf, format="PNG")
-    st.download_button(
-        label="💾 Download Single Slide (PNG)",
-        data=buf.getvalue(),
-        file_name="pioneering_testimony.png",
-        mime="image/png"
-    )
-else:
-    zip_buf = io.BytesIO()
-    with zipfile.ZipFile(zip_buf, "w") as zip_file:
-        for fname, img in generated_images:
-            img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format="PNG")
-            zip_file.writestr(fname, img_byte_arr.getvalue())
-            
-    st.download_button(
-        label=f"📦 Download All {len(generated_images)} Slides Carousel (ZIP)",
-        data=zip_buf.getvalue(),
-        file_name="testimonies_carousel.zip",
-        mime="application/zip"
-    )
+if st.button("🚀 Prepare High Quality Downloads"):
+    generated_images = []
+    for idx, slide in enumerate(st.session_state.slides):
+        # FULL HD RENDERING: Only executed when user wants to download!
+        full_img = render_canvas(slide, logo_img, target_size=(1080, 1080))
+        generated_images.append((f"slide_{idx+1}.png", full_img))
+
+    if len(generated_images) == 1:
+        buf = io.BytesIO()
+        generated_images[0][1].save(buf, format="PNG", quality=95)
+        st.download_button(
+            label="💾 Download Single Slide (PNG)",
+            data=buf.getvalue(),
+            file_name="pioneering_testimony.png",
+            mime="image/png"
+        )
+    else:
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, "w") as zip_file:
+            for fname, img in generated_images:
+                img_byte_arr = io.BytesIO()
+                img.save(img_byte_arr, format="PNG", quality=95)
+                zip_file.writestr(fname, img_byte_arr.getvalue())
+                
+        st.download_button(
+            label=f"📦 Download All {len(generated_images)} Slides Carousel (ZIP)",
+            data=zip_buf.getvalue(),
+            file_name="testimonies_carousel.zip",
+            mime="application/zip"
+        )
