@@ -66,7 +66,6 @@ def get_custom_font(font_name, size):
     font_filename = f"{font_name.replace(' ', '_')}.ttf"
     font_path = os.path.join(script_dir, font_filename)
     
-    # Download font via CDN using requests
     if not os.path.exists(font_path) and font_name in FONT_URLS:
         try:
             response = requests.get(FONT_URLS[font_name], timeout=5)
@@ -248,15 +247,17 @@ def create_slide_image(slide, logo):
     title_font = get_custom_font(selected_font, title_font_size)
     body_font = get_custom_font(selected_font, text_font_size)
 
-    # Dynamic Auto Wrap Calculation
+    # Wrap preserves explicit newlines (\n) automatically
     wrap_width_title = max(10, int(9500 / title_font_size))
     wrap_width_body = max(15, int(11000 / text_font_size))
 
-    title_text = slide["title"].upper()
-    wrapped_title = textwrap.fill(title_text, width=wrap_width_title)
+    title_lines = slide["title"].upper().split('\n')
+    wrapped_title_lines = [textwrap.fill(line, width=wrap_width_title) for line in title_lines]
+    wrapped_title = "\n".join(wrapped_title_lines)
 
-    content_text = slide["content"]
-    wrapped_content = textwrap.fill(content_text, width=wrap_width_body)
+    content_lines = slide["content"].split('\n')
+    wrapped_content_lines = [textwrap.fill(line, width=wrap_width_body) for line in content_lines]
+    wrapped_content = "\n".join(wrapped_content_lines)
 
     # Draw Title & Body Text
     draw.multiline_text((pos_title_x, pos_title_y), wrapped_title, fill=title_color, font=title_font, spacing=12, align=text_align)
@@ -276,7 +277,8 @@ with col_edit:
     st.subheader("✏️ Edit Content & Images")
     for idx, slide in enumerate(st.session_state.slides):
         with st.expander(f"📌 Slide {idx + 1}: {slide['title'][:20]}", expanded=(idx == 0)):
-            slide["title"] = st.text_input(f"Title #{idx+1}", value=slide["title"], key=f"title_{idx}")
+            # Title with text_area to support multi-line Enter keys
+            slide["title"] = st.text_area(f"Title #{idx+1}", value=slide["title"], height=75, key=f"title_{idx}")
             slide["content"] = st.text_area(f"Story Text #{idx+1}", value=slide["content"], height=120, key=f"content_{idx}")
             
             img_file = st.file_uploader(f"Upload Background Image #{idx+1}", type=["jpg", "png", "jpeg"], key=f"img_{idx}")
