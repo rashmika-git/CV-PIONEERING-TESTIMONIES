@@ -4,7 +4,7 @@ import io
 import zipfile
 import textwrap
 import os
-import urllib.request
+import requests
 
 st.set_page_config(
     page_title="CV PIONEERING TESTIMONIES",
@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling - Reduced animation latency for instant snappy updates
+# Custom Styling
 st.markdown("""
 <style>
     .stApp {
@@ -21,7 +21,6 @@ st.markdown("""
         color: #e0e6e3;
         font-family: 'Inter', sans-serif;
     }
-    /* Disable element transition fadeout overlay effect */
     .element-container, .stImage {
         transition: none !important;
         opacity: 1 !important;
@@ -50,26 +49,30 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Google Fonts Collection
+# Reliable Font Direct URLs (CDN Links)
 FONT_URLS = {
-    "Roboto": "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf",
-    "Montserrat": "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf",
-    "Oswald": "https://github.com/google/fonts/raw/main/ofl/oswald/Oswald-Bold.ttf",
-    "Poppins": "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Bold.ttf",
-    "Lora": "https://github.com/google/fonts/raw/main/ofl/lora/Lora-Bold.ttf",
-    "Playfair Display": "https://github.com/google/fonts/raw/main/ofl/playfairdisplay/PlayfairDisplay-Bold.ttf"
+    "Roboto": "https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-700-normal.ttf",
+    "Montserrat": "https://cdn.jsdelivr.net/fontsource/fonts/montserrat@latest/latin-700-normal.ttf",
+    "Oswald": "https://cdn.jsdelivr.net/fontsource/fonts/oswald@latest/latin-700-normal.ttf",
+    "Poppins": "https://cdn.jsdelivr.net/fontsource/fonts/poppins@latest/latin-700-normal.ttf",
+    "Lora": "https://cdn.jsdelivr.net/fontsource/fonts/lora@latest/latin-700-normal.ttf",
+    "Playfair Display": "https://cdn.jsdelivr.net/fontsource/fonts/playfair-display@latest/latin-700-normal.ttf"
 }
 
-# Dynamic Font Fetcher
+# Network Safe Dynamic Font Fetcher
 @st.cache_resource
 def get_custom_font(font_name, size):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     font_filename = f"{font_name.replace(' ', '_')}.ttf"
     font_path = os.path.join(script_dir, font_filename)
     
+    # Download font via CDN using requests
     if not os.path.exists(font_path) and font_name in FONT_URLS:
         try:
-            urllib.request.urlretrieve(FONT_URLS[font_name], font_path)
+            response = requests.get(FONT_URLS[font_name], timeout=5)
+            if response.status_code == 200:
+                with open(font_path, "wb") as f:
+                    f.write(response.content)
         except Exception:
             pass
 
@@ -159,7 +162,6 @@ element_to_move = st.sidebar.selectbox(
     key="selected_element"
 )
 
-# Render Controls Dynamically with Fixed Keys for Instant UI Binding
 if element_to_move == "Title Text":
     pos_title_x = st.sidebar.slider("Title X Position (Left/Right)", 0, 1000, 60, key="pos_t_x")
     pos_title_y = st.sidebar.slider("Title Y Position (Top/Bottom)", 50, 900, 220, key="pos_t_y")
@@ -185,7 +187,6 @@ if element_to_move == "Accent Line":
     pos_line_y = st.sidebar.slider("Accent Line Y Position", 800, 1080, 1020, key="pos_line_y")
 else:
     pos_line_y = st.session_state.get("pos_line_y", 1020)
-
 
 # Session State for Slides
 if "slides" not in st.session_state:
@@ -234,7 +235,7 @@ def create_slide_image(slide, logo):
     canvas = Image.alpha_composite(bg_image, overlay)
     draw = ImageDraw.Draw(canvas)
 
-    # Logo Display with Fast Position Reading
+    # Logo Display
     if logo is not None:
         try:
             l_img = make_logo_white(logo)
@@ -257,7 +258,7 @@ def create_slide_image(slide, logo):
     content_text = slide["content"]
     wrapped_content = textwrap.fill(content_text, width=wrap_width_body)
 
-    # Draw Title & Body Text Realtime
+    # Draw Title & Body Text
     draw.multiline_text((pos_title_x, pos_title_y), wrapped_title, fill=title_color, font=title_font, spacing=12, align=text_align)
     draw.multiline_text((pos_body_x, pos_body_y), wrapped_content, fill=body_color, font=body_font, spacing=16, align=text_align)
 
