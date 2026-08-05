@@ -108,6 +108,34 @@ def make_logo_white(img):
     except Exception:
         return img
 
+# Session State Initialization
+if "slides" not in st.session_state:
+    st.session_state.slides = [
+        {
+            "id": 1,
+            "title": "FAITH IN ACTION",
+            "title_size": 65,
+            "title_color": "#2ECC71",
+            "title_x": 60,
+            "title_y": 220,
+            "title_align": "left",
+            "content": "Every testimony is a footprint of God's grace pioneering into new hearts and territories.",
+            "content_size": 36,
+            "content_color": "#FFFFFF",
+            "content_x": 60,
+            "content_y": 520,
+            "content_align": "left",
+            "image": None,
+            "brightness": 1.0
+        }
+    ]
+
+if "slide_counter" not in st.session_state:
+    st.session_state.slide_counter = 1
+
+if "deleted_slides_stack" not in st.session_state:
+    st.session_state.deleted_slides_stack = []
+
 # Logo Handling
 st.sidebar.header("🖼️ Branding & Global Settings")
 logo_upload = st.sidebar.file_uploader("Upload Logo (PNG)", type=["png", "jpg", "jpeg"])
@@ -156,33 +184,14 @@ line_color = st.sidebar.color_picker("Line Color", "#2ECC71", key="cfg_line_colo
 pos_line_y = st.sidebar.slider("Line Y Position", 800, 1080, 1020, step=10, key="pos_line_y")
 line_thickness = st.sidebar.slider("Line Thickness", 2, 20, 6, key="cfg_line_thick")
 
-# Session State
-if "slides" not in st.session_state:
-    st.session_state.slides = [
-        {
-            "title": "FAITH IN ACTION",
-            "title_size": 65,
-            "title_color": "#2ECC71",
-            "title_x": 60,
-            "title_y": 220,
-            "title_align": "left",
-            "content": "Every testimony is a footprint of God's grace pioneering into new hearts and territories.",
-            "content_size": 36,
-            "content_color": "#FFFFFF",
-            "content_x": 60,
-            "content_y": 520,
-            "content_align": "left",
-            "image": None,
-            "brightness": 1.0
-        }
-    ]
-
-# Manage Slides
+# Manage Slides Sidebar Controls
 st.sidebar.markdown("---")
 st.sidebar.header("📑 Carousel Slides")
 
 if st.sidebar.button("➕ Add New Slide"):
+    st.session_state.slide_counter += 1
     st.session_state.slides.append({
+        "id": st.session_state.slide_counter,
         "title": f"SLIDE {len(st.session_state.slides) + 1}",
         "title_size": 65,
         "title_color": "#2ECC71",
@@ -198,10 +207,15 @@ if st.sidebar.button("➕ Add New Slide"):
         "image": None,
         "brightness": 1.0
     })
+    st.rerun()
 
-if len(st.session_state.slides) > 1:
-    if st.sidebar.button("🗑️ Remove Last Slide"):
-        st.session_state.slides.pop()
+# Undo Global Delete Button if stack has items
+if st.session_state.deleted_slides_stack:
+    if st.sidebar.button("↩️ Undo Delete"):
+        last_deleted = st.session_state.deleted_slides_stack.pop()
+        index_to_restore = min(last_deleted["index"], len(st.session_state.slides))
+        st.session_state.slides.insert(index_to_restore, last_deleted["slide"])
+        st.rerun()
 
 # --- Fast Canvas Generator Function ---
 def render_canvas(slide, logo, target_size=(1080, 1080)):
@@ -292,64 +306,95 @@ col_edit, col_preview = st.columns([1.1, 0.9])
 
 with col_edit:
     st.subheader("✏️ Content & Element Editors")
-    for idx, slide in enumerate(st.session_state.slides):
+    
+    # Render notification banner if last item was deleted
+    if st.session_state.deleted_slides_stack:
+        st.info("💡 A slide was recently deleted. You can restore it using the '↩️ Undo Delete' button in the sidebar.")
+
+    for idx, slide in enumerate(list(st.session_state.slides)):
+        slide_id = slide["id"]
         with st.expander(f"📌 Slide {idx + 1}: {slide['title'][:25]}", expanded=(idx == 0)):
             
+            # --- Per-Slide Quick Actions Bar ---
+            btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 2])
+            
+            with btn_col1:
+                if st.button("📋 Duplicate", key=f"dup_{slide_id}"):
+                    new_slide = dict(slide)
+                    st.session_state.slide_counter += 1
+                    new_slide["id"] = st.session_state.slide_counter
+                    st.session_state.slides.insert(idx + 1, new_slide)
+                    st.rerun()
+
+            with btn_col2:
+                if st.button("🗑️ Delete", key=f"del_{slide_id}"):
+                    if len(st.session_state.slides) > 1:
+                        removed_slide = st.session_state.slides.pop(idx)
+                        st.session_state.deleted_slides_stack.append({
+                            "index": idx,
+                            "slide": removed_slide
+                        })
+                        st.rerun()
+                    else:
+                        st.warning("At least one slide is required.")
+
+            st.markdown("---")
+
             # --- 1. TITLE SETTINGS ---
             st.markdown("**1. Title Headline**")
-            slide["title"] = st.text_area(f"Title Text #{idx+1}", value=slide["title"], height=70, key=f"title_{idx}")
+            slide["title"] = st.text_area(f"Title Text #{idx+1}", value=slide["title"], height=70, key=f"title_{slide_id}")
             
             t_col1, t_col2, t_col3, t_col4 = st.columns([2, 1.2, 1.5, 1.5])
             with t_col1:
-                slide["title_size"] = st.slider("Title Size", 30, 110, slide.get("title_size", 65), step=2, key=f"tsize_{idx}")
+                slide["title_size"] = st.slider("Title Size", 30, 110, slide.get("title_size", 65), step=2, key=f"tsize_{slide_id}")
             with t_col2:
-                slide["title_color"] = st.color_picker("Color", slide.get("title_color", "#2ECC71"), key=f"tcol_{idx}")
+                slide["title_color"] = st.color_picker("Color", slide.get("title_color", "#2ECC71"), key=f"tcol_{slide_id}")
             with t_col3:
-                slide["title_x"] = st.number_input("Pos X", 0, 1000, slide.get("title_x", 60), step=10, key=f"tx_{idx}")
+                slide["title_x"] = st.number_input("Pos X", 0, 1000, slide.get("title_x", 60), step=10, key=f"tx_{slide_id}")
             with t_col4:
-                slide["title_y"] = st.number_input("Pos Y", 0, 1000, slide.get("title_y", 220), step=10, key=f"ty_{idx}")
+                slide["title_y"] = st.number_input("Pos Y", 0, 1000, slide.get("title_y", 220), step=10, key=f"ty_{slide_id}")
 
             slide["title_align"] = st.radio(
                 f"Title Alignment #{idx+1}", 
                 ["left", "center", "right"], 
                 index=["left", "center", "right"].index(slide.get("title_align", "left")), 
                 horizontal=True, 
-                key=f"talign_{idx}"
+                key=f"talign_{slide_id}"
             )
 
             st.markdown("---")
 
             # --- 2. BODY SETTINGS ---
             st.markdown("**2. Story Text / Content**")
-            slide["content"] = st.text_area(f"Story Text #{idx+1}", value=slide["content"], height=110, key=f"content_{idx}")
+            slide["content"] = st.text_area(f"Story Text #{idx+1}", value=slide["content"], height=110, key=f"content_{slide_id}")
             
             b_col1, b_col2, b_col3, b_col4 = st.columns([2, 1.2, 1.5, 1.5])
             with b_col1:
-                slide["content_size"] = st.slider("Body Size", 18, 70, slide.get("content_size", 36), step=2, key=f"bsize_{idx}")
+                slide["content_size"] = st.slider("Body Size", 18, 70, slide.get("content_size", 36), step=2, key=f"bsize_{slide_id}")
             with b_col2:
-                slide["content_color"] = st.color_picker("Color", slide.get("content_color", "#FFFFFF"), key=f"bcol_{idx}")
+                slide["content_color"] = st.color_picker("Color", slide.get("content_color", "#FFFFFF"), key=f"bcol_{slide_id}")
             with b_col3:
-                slide["content_x"] = st.number_input("Pos X", 0, 1000, slide.get("content_x", 60), step=10, key=f"bx_{idx}")
+                slide["content_x"] = st.number_input("Pos X", 0, 1000, slide.get("content_x", 60), step=10, key=f"bx_{slide_id}")
             with b_col4:
-                slide["content_y"] = st.number_input("Pos Y", 0, 1000, slide.get("content_y", 520), step=10, key=f"by_{idx}")
+                slide["content_y"] = st.number_input("Pos Y", 0, 1000, slide.get("content_y", 520), step=10, key=f"by_{slide_id}")
 
             slide["content_align"] = st.radio(
                 f"Body Alignment #{idx+1}", 
                 ["left", "center", "right"], 
                 index=["left", "center", "right"].index(slide.get("content_align", "left")), 
                 horizontal=True, 
-                key=f"balign_{idx}"
+                key=f"balign_{slide_id}"
             )
 
             st.markdown("---")
 
             # --- 3. BACKGROUND IMAGE SETTINGS ---
             st.markdown("**3. Background Image & Brightness**")
-            img_file = st.file_uploader(f"Upload Image #{idx+1}", type=["jpg", "png", "jpeg"], key=f"img_{idx}")
+            img_file = st.file_uploader(f"Upload Image #{idx+1}", type=["jpg", "png", "jpeg"], key=f"img_{slide_id}")
             if img_file is not None:
                 slide["image"] = img_file
                 
-            slide["brightness"] = st.slider(f"Brightness #{idx+1}", 0.2, 1.8, float(slide.get("brightness", 1.0)), 0.1, key=f"bright_{idx}")
+            slide["brightness"] = st.slider(f"Brightness #{idx+1}", 0.2, 1.8, float(slide.get("brightness", 1.0)), 0.1, key=f"bright_{slide_id}")
 
 with col_preview:
     st.subheader("👁️ Live Interactive Preview")
