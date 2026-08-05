@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling (Fast & Responsive)
+# Custom Styling
 st.markdown("""
 <style>
     .stApp {
@@ -165,12 +165,13 @@ if "slides" not in st.session_state:
             "title_color": "#2ECC71",
             "title_x": 60,
             "title_y": 220,
+            "title_align": "left",
             "content": "Every testimony is a footprint of God's grace pioneering into new hearts and territories.",
             "content_size": 36,
             "content_color": "#FFFFFF",
             "content_x": 60,
             "content_y": 520,
-            "text_align": "left",
+            "content_align": "left",
             "image": None,
             "brightness": 1.0
         }
@@ -187,12 +188,13 @@ if st.sidebar.button("➕ Add New Slide"):
         "title_color": "#2ECC71",
         "title_x": 60,
         "title_y": 220,
+        "title_align": "left",
         "content": "Enter your story or testimony details here...",
         "content_size": 36,
         "content_color": "#FFFFFF",
         "content_x": 60,
         "content_y": 520,
-        "text_align": "left",
+        "content_align": "left",
         "image": None,
         "brightness": 1.0
     })
@@ -204,7 +206,7 @@ if len(st.session_state.slides) > 1:
 # --- Fast Canvas Generator Function ---
 def render_canvas(slide, logo, target_size=(1080, 1080)):
     img_width, img_height = target_size
-    scale_factor = img_width / 1080.0  # Scale positions proportionally for previews
+    scale_factor = img_width / 1080.0
 
     if slide.get("image") is not None:
         try:
@@ -251,7 +253,9 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
     wrapped_content_lines = [textwrap.fill(line, width=wrap_width_body) for line in content_lines if line.strip()]
     wrapped_content = "\n".join(wrapped_content_lines) if wrapped_content_lines else raw_content
 
-    align_mode = slide.get("text_align", "left")
+    # Alignments
+    title_align_mode = slide.get("title_align", "left")
+    body_align_mode = slide.get("content_align", "left")
 
     # Draw Title Text
     draw.multiline_text(
@@ -260,7 +264,7 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
         fill=slide.get("title_color", "#2ECC71"), 
         font=title_font, 
         spacing=int(12 * scale_factor), 
-        align=align_mode
+        align=title_align_mode
     )
 
     # Draw Body Text
@@ -270,7 +274,7 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
         fill=slide.get("content_color", "#FFFFFF"), 
         font=body_font, 
         spacing=int(16 * scale_factor), 
-        align=align_mode
+        align=body_align_mode
     )
 
     # Accent Line
@@ -291,7 +295,7 @@ with col_edit:
     for idx, slide in enumerate(st.session_state.slides):
         with st.expander(f"📌 Slide {idx + 1}: {slide['title'][:25]}", expanded=(idx == 0)):
             
-            # Title Settings
+            # --- 1. TITLE SETTINGS ---
             st.markdown("**1. Title Headline**")
             slide["title"] = st.text_area(f"Title Text #{idx+1}", value=slide["title"], height=70, key=f"title_{idx}")
             
@@ -305,9 +309,17 @@ with col_edit:
             with t_col4:
                 slide["title_y"] = st.number_input("Pos Y", 0, 1000, slide.get("title_y", 220), step=10, key=f"ty_{idx}")
 
+            slide["title_align"] = st.radio(
+                f"Title Alignment #{idx+1}", 
+                ["left", "center", "right"], 
+                index=["left", "center", "right"].index(slide.get("title_align", "left")), 
+                horizontal=True, 
+                key=f"talign_{idx}"
+            )
+
             st.markdown("---")
 
-            # Body Settings
+            # --- 2. BODY SETTINGS ---
             st.markdown("**2. Story Text / Content**")
             slide["content"] = st.text_area(f"Story Text #{idx+1}", value=slide["content"], height=110, key=f"content_{idx}")
             
@@ -321,11 +333,17 @@ with col_edit:
             with b_col4:
                 slide["content_y"] = st.number_input("Pos Y", 0, 1000, slide.get("content_y", 520), step=10, key=f"by_{idx}")
 
-            slide["text_align"] = st.radio("Text Alignment", ["left", "center", "right"], index=["left", "center", "right"].index(slide.get("text_align", "left")), horizontal=True, key=f"align_{idx}")
+            slide["content_align"] = st.radio(
+                f"Body Alignment #{idx+1}", 
+                ["left", "center", "right"], 
+                index=["left", "center", "right"].index(slide.get("content_align", "left")), 
+                horizontal=True, 
+                key=f"balign_{idx}"
+            )
 
             st.markdown("---")
 
-            # Background Image Settings
+            # --- 3. BACKGROUND IMAGE SETTINGS ---
             st.markdown("**3. Background Image & Brightness**")
             img_file = st.file_uploader(f"Upload Image #{idx+1}", type=["jpg", "png", "jpeg"], key=f"img_{idx}")
             if img_file is not None:
@@ -336,18 +354,16 @@ with col_edit:
 with col_preview:
     st.subheader("👁️ Live Interactive Preview")
     for idx, slide in enumerate(st.session_state.slides):
-        # FAST PREVIEW: Rendered at 450x450 for ultra-fast response speed
         preview_img = render_canvas(slide, logo_img, target_size=(450, 450))
         st.image(preview_img, caption=f"Slide {idx+1} Preview")
 
-# --- Export & Download Section (Full 1080x1080 Resolution) ---
+# --- Export & Download Section ---
 st.markdown("---")
 st.subheader("📥 Export Options (High Quality 1080p)")
 
 if st.button("🚀 Prepare High Quality Downloads"):
     generated_images = []
     for idx, slide in enumerate(st.session_state.slides):
-        # FULL HD RENDERING: Only executed when user wants to download!
         full_img = render_canvas(slide, logo_img, target_size=(1080, 1080))
         generated_images.append((f"slide_{idx+1}.png", full_img))
 
