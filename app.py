@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling
+# Custom Styling (Premium Dark Studio UI)
 st.markdown("""
 <style>
     .stApp {
@@ -45,6 +45,11 @@ st.markdown("""
     section[data-testid="stSidebar"] {
         background-color: rgba(14, 23, 19, 0.95) !important;
         border-right: 1px solid rgba(46, 204, 113, 0.2);
+    }
+    .stExpander {
+        border: 1px solid rgba(46, 204, 113, 0.2) !important;
+        background-color: rgba(20, 32, 26, 0.6) !important;
+        border-radius: 8px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -78,11 +83,18 @@ def get_custom_font(font_name, size):
     local_default = os.path.join(script_dir, "Roboto-Bold.ttf")
 
     if os.path.exists(font_path):
-        return ImageFont.truetype(font_path, size)
-    elif os.path.exists(local_default):
-        return ImageFont.truetype(local_default, size)
-    else:
-        return ImageFont.load_default()
+        try:
+            return ImageFont.truetype(font_path, size)
+        except Exception:
+            pass
+            
+    if os.path.exists(local_default):
+        try:
+            return ImageFont.truetype(local_default, size)
+        except Exception:
+            pass
+
+    return ImageFont.load_default()
 
 # Helper function to convert black logo to white safely
 def make_logo_white(img):
@@ -97,7 +109,7 @@ def make_logo_white(img):
         return img
 
 # Logo Handling
-st.sidebar.header("🖼️ Branding & Logo")
+st.sidebar.header("🖼️ Branding & Global Settings")
 logo_upload = st.sidebar.file_uploader("Upload Logo (PNG)", type=["png", "jpg", "jpeg"])
 
 top_col1, top_col2 = st.columns([1, 4])
@@ -129,83 +141,58 @@ with top_col2:
     st.markdown('<div class="brand-header"><h1 class="brand-title">CV PIONEERING TESTIMONIES</h1></div>', unsafe_allow_html=True)
 
 # --- Global Settings Sidebar ---
+selected_font = st.sidebar.selectbox("Choose Global Font Style", list(FONT_URLS.keys()), index=0, key="cfg_font_family")
+
 st.sidebar.markdown("---")
-st.sidebar.header("🎨 Full Design Customizer")
-
-# Typography Controls
-st.sidebar.subheader("✍️ Typography Settings")
-selected_font = st.sidebar.selectbox("Choose Font Style", list(FONT_URLS.keys()), index=0, key="cfg_font_family")
-title_font_size = st.sidebar.slider("Title Font Size", 30, 110, 65, key="cfg_title_size")
-text_font_size = st.sidebar.slider("Body Text Font Size", 18, 70, 36, key="cfg_body_size")
-text_align = st.sidebar.selectbox("Text Alignment", ["left", "center", "right"], key="cfg_align")
-
-# Color Controls
-st.sidebar.subheader("🎨 Color Settings")
-title_color = st.sidebar.color_picker("Title Color", "#2ECC71", key="cfg_title_color")
-body_color = st.sidebar.color_picker("Body Text Color", "#FFFFFF", key="cfg_body_color")
-line_color = st.sidebar.color_picker("Bottom Accent Line Color", "#2ECC71", key="cfg_line_color")
-
-# Layout & Branding Controls
-st.sidebar.subheader("📐 Element Sizes & Overlays")
+st.sidebar.subheader("📐 Logo & Background Overlay")
 logo_scale = st.sidebar.slider("Logo Size", 100, 400, 240, key="cfg_logo_size")
+pos_logo_x = st.sidebar.slider("Logo Position X", 0, 900, 60, key="pos_l_x")
+pos_logo_y = st.sidebar.slider("Logo Position Y", 0, 900, 60, key="pos_l_y")
 overlay_opacity = st.sidebar.slider("Dark Overlay Opacity", 0.0, 0.95, 0.45, 0.05, key="cfg_overlay")
-line_thickness = st.sidebar.slider("Accent Line Thickness", 2, 20, 6, key="cfg_line_thick")
 
-# --- Direct Realtime X & Y Position Controls ---
 st.sidebar.markdown("---")
-st.sidebar.header("🎯 Precise X & Y Positioning")
+st.sidebar.subheader("➖ Bottom Accent Line")
+line_color = st.sidebar.color_picker("Line Color", "#2ECC71", key="cfg_line_color")
+pos_line_y = st.sidebar.slider("Line Y Position", 800, 1080, 1020, key="pos_line_y")
+line_thickness = st.sidebar.slider("Line Thickness", 2, 20, 6, key="cfg_line_thick")
 
-element_to_move = st.sidebar.selectbox(
-    "Select Element to Position", 
-    ["Title Text", "Body Text", "Logo", "Accent Line"],
-    key="selected_element"
-)
-
-if element_to_move == "Title Text":
-    pos_title_x = st.sidebar.slider("Title X Position (Left/Right)", 0, 1000, 60, key="pos_t_x")
-    pos_title_y = st.sidebar.slider("Title Y Position (Top/Bottom)", 50, 900, 220, key="pos_t_y")
-else:
-    pos_title_x = st.session_state.get("pos_t_x", 60)
-    pos_title_y = st.session_state.get("pos_t_y", 220)
-
-if element_to_move == "Body Text":
-    pos_body_x = st.sidebar.slider("Body X Position (Left/Right)", 0, 1000, 60, key="pos_b_x")
-    pos_body_y = st.sidebar.slider("Body Y Position (Top/Bottom)", 100, 950, 520, key="pos_b_y")
-else:
-    pos_body_x = st.session_state.get("pos_b_x", 60)
-    pos_body_y = st.session_state.get("pos_b_y", 520)
-
-if element_to_move == "Logo":
-    pos_logo_x = st.sidebar.slider("Logo X Position (Left/Right)", 0, 900, 60, key="pos_l_x")
-    pos_logo_y = st.sidebar.slider("Logo Y Position (Top/Bottom)", 0, 900, 60, key="pos_l_y")
-else:
-    pos_logo_x = st.session_state.get("pos_l_x", 60)
-    pos_logo_y = st.session_state.get("pos_l_y", 60)
-
-if element_to_move == "Accent Line":
-    pos_line_y = st.sidebar.slider("Accent Line Y Position", 800, 1080, 1020, key="pos_line_y")
-else:
-    pos_line_y = st.session_state.get("pos_line_y", 1020)
-
-# Session State for Slides
+# Initial Slide Structure with Per-Element Custom Settings
 if "slides" not in st.session_state:
     st.session_state.slides = [
         {
             "title": "FAITH IN ACTION",
+            "title_size": 65,
+            "title_color": "#2ECC71",
+            "title_x": 60,
+            "title_y": 220,
             "content": "Every testimony is a footprint of God's grace pioneering into new hearts and territories.",
+            "content_size": 36,
+            "content_color": "#FFFFFF",
+            "content_x": 60,
+            "content_y": 520,
+            "text_align": "left",
             "image": None,
             "brightness": 1.0
         }
     ]
 
-# Manage Slides
+# Manage Slides Sidebar Controls
 st.sidebar.markdown("---")
-st.sidebar.header("📑 Manage Carousel Slides")
+st.sidebar.header("📑 Carousel Slides")
 
 if st.sidebar.button("➕ Add New Slide"):
     st.session_state.slides.append({
         "title": f"SLIDE {len(st.session_state.slides) + 1}",
+        "title_size": 65,
+        "title_color": "#2ECC71",
+        "title_x": 60,
+        "title_y": 220,
         "content": "Enter your story or testimony details here...",
+        "content_size": 36,
+        "content_color": "#FFFFFF",
+        "content_x": 60,
+        "content_y": 520,
+        "text_align": "left",
         "image": None,
         "brightness": 1.0
     })
@@ -218,12 +205,12 @@ if len(st.session_state.slides) > 1:
 def create_slide_image(slide, logo):
     img_width, img_height = 1080, 1080
     
-    if slide["image"] is not None:
+    if slide.get("image") is not None:
         try:
             bg_image = Image.open(slide["image"]).convert("RGBA")
             bg_image = ImageOps.fit(bg_image, (img_width, img_height), Image.Resampling.LANCZOS)
             enhancer = ImageEnhance.Brightness(bg_image)
-            bg_image = enhancer.enhance(slide["brightness"])
+            bg_image = enhancer.enhance(slide.get("brightness", 1.0))
         except Exception:
             bg_image = Image.new("RGBA", (img_width, img_height), (14, 23, 19, 255))
     else:
@@ -244,24 +231,47 @@ def create_slide_image(slide, logo):
             pass
 
     # Dynamic Font Loader
-    title_font = get_custom_font(selected_font, title_font_size)
-    body_font = get_custom_font(selected_font, text_font_size)
+    t_size = slide.get("title_size", 65)
+    b_size = slide.get("content_size", 36)
+    
+    title_font = get_custom_font(selected_font, t_size)
+    body_font = get_custom_font(selected_font, b_size)
 
-    # Wrap preserves explicit newlines (\n) automatically
-    wrap_width_title = max(10, int(9500 / title_font_size))
-    wrap_width_body = max(15, int(11000 / text_font_size))
+    # Wrap Calculation
+    wrap_width_title = max(10, int(9500 / t_size))
+    wrap_width_body = max(15, int(11000 / b_size))
 
-    title_lines = slide["title"].upper().split('\n')
-    wrapped_title_lines = [textwrap.fill(line, width=wrap_width_title) for line in title_lines]
-    wrapped_title = "\n".join(wrapped_title_lines)
+    raw_title = str(slide.get("title", ""))
+    title_lines = raw_title.upper().split('\n')
+    wrapped_title_lines = [textwrap.fill(line, width=wrap_width_title) for line in title_lines if line.strip()]
+    wrapped_title = "\n".join(wrapped_title_lines) if wrapped_title_lines else raw_title.upper()
 
-    content_lines = slide["content"].split('\n')
-    wrapped_content_lines = [textwrap.fill(line, width=wrap_width_body) for line in content_lines]
-    wrapped_content = "\n".join(wrapped_content_lines)
+    raw_content = str(slide.get("content", ""))
+    content_lines = raw_content.split('\n')
+    wrapped_content_lines = [textwrap.fill(line, width=wrap_width_body) for line in content_lines if line.strip()]
+    wrapped_content = "\n".join(wrapped_content_lines) if wrapped_content_lines else raw_content
 
-    # Draw Title & Body Text
-    draw.multiline_text((pos_title_x, pos_title_y), wrapped_title, fill=title_color, font=title_font, spacing=12, align=text_align)
-    draw.multiline_text((pos_body_x, pos_body_y), wrapped_content, fill=body_color, font=body_font, spacing=16, align=text_align)
+    align_mode = slide.get("text_align", "left")
+
+    # Draw Title Text
+    draw.multiline_text(
+        (slide.get("title_x", 60), slide.get("title_y", 220)), 
+        wrapped_title, 
+        fill=slide.get("title_color", "#2ECC71"), 
+        font=title_font, 
+        spacing=12, 
+        align=align_mode
+    )
+
+    # Draw Body Text
+    draw.multiline_text(
+        (slide.get("content_x", 60), slide.get("content_y", 520)), 
+        wrapped_content, 
+        fill=slide.get("content_color", "#FFFFFF"), 
+        font=body_font, 
+        spacing=16, 
+        align=align_mode
+    )
 
     # Bottom Line Accent
     draw.rectangle([60, pos_line_y - line_thickness, 1020, pos_line_y], fill=line_color)
@@ -269,23 +279,57 @@ def create_slide_image(slide, logo):
     return canvas.convert("RGB")
 
 # --- Main Editor & Live Preview Grid ---
-col_edit, col_preview = st.columns([1, 1])
+col_edit, col_preview = st.columns([1.1, 0.9])
 
 generated_images = []
 
 with col_edit:
-    st.subheader("✏️ Edit Content & Images")
+    st.subheader("✏️ Content & Element Editors")
     for idx, slide in enumerate(st.session_state.slides):
-        with st.expander(f"📌 Slide {idx + 1}: {slide['title'][:20]}", expanded=(idx == 0)):
-            # Title with text_area to support multi-line Enter keys
-            slide["title"] = st.text_area(f"Title #{idx+1}", value=slide["title"], height=75, key=f"title_{idx}")
-            slide["content"] = st.text_area(f"Story Text #{idx+1}", value=slide["content"], height=120, key=f"content_{idx}")
+        with st.expander(f"📌 Slide {idx + 1}: {slide['title'][:25]}", expanded=(idx == 0)):
             
-            img_file = st.file_uploader(f"Upload Background Image #{idx+1}", type=["jpg", "png", "jpeg"], key=f"img_{idx}")
+            # --- 1. TITLE INPUT & LOCAL SETTINGS ---
+            st.markdown("**1. Title Headline**")
+            slide["title"] = st.text_area(f"Title Text #{idx+1}", value=slide["title"], height=70, key=f"title_{idx}")
+            
+            t_col1, t_col2, t_col3, t_col4 = st.columns([2, 1.2, 1.5, 1.5])
+            with t_col1:
+                slide["title_size"] = st.slider("Title Size", 30, 110, slide.get("title_size", 65), key=f"tsize_{idx}")
+            with t_col2:
+                slide["title_color"] = st.color_picker("Color", slide.get("title_color", "#2ECC71"), key=f"tcol_{idx}")
+            with t_col3:
+                slide["title_x"] = st.number_input("Position X", 0, 1000, slide.get("title_x", 60), key=f"tx_{idx}")
+            with t_col4:
+                slide["title_y"] = st.number_input("Position Y", 0, 1000, slide.get("title_y", 220), key=f"ty_{idx}")
+
+            st.markdown("---")
+
+            # --- 2. BODY TEXT INPUT & LOCAL SETTINGS ---
+            st.markdown("**2. Story Text / Content**")
+            slide["content"] = st.text_area(f"Story Text #{idx+1}", value=slide["content"], height=110, key=f"content_{idx}")
+            
+            b_col1, b_col2, b_col3, b_col4 = st.columns([2, 1.2, 1.5, 1.5])
+            with b_col1:
+                slide["content_size"] = st.slider("Body Size", 18, 70, slide.get("content_size", 36), key=f"bsize_{idx}")
+            with b_col2:
+                slide["content_color"] = st.color_picker("Color", slide.get("content_color", "#FFFFFF"), key=f"bcol_{idx}")
+            with b_col3:
+                slide["content_x"] = st.number_input("Position X", 0, 1000, slide.get("content_x", 60), key=f"bx_{idx}")
+            with b_col4:
+                slide["content_y"] = st.number_input("Position Y", 0, 1000, slide.get("content_y", 520), key=f"by_{idx}")
+
+            # Alignment Control
+            slide["text_align"] = st.radio("Text Alignment", ["left", "center", "right"], index=["left", "center", "right"].index(slide.get("text_align", "left")), horizontal=True, key=f"align_{idx}")
+
+            st.markdown("---")
+
+            # --- 3. BACKGROUND IMAGE & BRIGHTNESS ---
+            st.markdown("**3. Background Image & Brightness**")
+            img_file = st.file_uploader(f"Upload Image #{idx+1}", type=["jpg", "png", "jpeg"], key=f"img_{idx}")
             if img_file is not None:
                 slide["image"] = img_file
                 
-            slide["brightness"] = st.slider(f"Image Brightness #{idx+1}", 0.2, 1.8, float(slide["brightness"]), 0.1, key=f"bright_{idx}")
+            slide["brightness"] = st.slider(f"Brightness #{idx+1}", 0.2, 1.8, float(slide.get("brightness", 1.0)), 0.1, key=f"bright_{idx}")
 
 with col_preview:
     st.subheader("👁️ Live Interactive Preview")
@@ -294,9 +338,9 @@ with col_preview:
         generated_images.append((f"slide_{idx+1}.png", slide_img))
         st.image(slide_img, caption=f"Slide {idx+1} Preview")
 
-# --- Download Section ---
+# --- Export & Download Section ---
 st.markdown("---")
-st.subheader("📥 Export & Download Options")
+st.subheader("📥 Export Options")
 
 if len(generated_images) == 1:
     buf = io.BytesIO()
