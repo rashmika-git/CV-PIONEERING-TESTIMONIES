@@ -4,6 +4,7 @@ import io
 import zipfile
 import textwrap
 import os
+import urllib.request
 
 st.set_page_config(
     page_title="CV PIONEERING TESTIMONIES",
@@ -43,6 +44,25 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+# Function to safely load dynamic TTF fonts
+@st.cache_resource
+def get_font(size, bold=False):
+    font_filename = "Roboto-Bold.ttf" if bold else "Roboto-Regular.ttf"
+    font_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), font_filename)
+    
+    # Download font automatically if not exists
+    if not os.path.exists(font_path):
+        url = "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf" if bold else "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Regular.ttf"
+        try:
+            urllib.request.urlretrieve(url, font_path)
+        except Exception:
+            pass
+
+    try:
+        return ImageFont.truetype(font_path, size)
+    except Exception:
+        return ImageFont.load_default()
 
 # Helper function to convert black logo to white safely
 def make_logo_white(img):
@@ -166,17 +186,9 @@ def create_slide_image(slide, logo):
         except Exception:
             pass
 
-    # Load System Fonts Safely
-    try:
-        title_font = ImageFont.truetype("DejaVuSans-Bold.ttf", title_font_size)
-        body_font = ImageFont.truetype("DejaVuSans.ttf", text_font_size)
-    except Exception:
-        try:
-            title_font = ImageFont.truetype("arial.ttf", title_font_size)
-            body_font = ImageFont.truetype("arial.ttf", text_font_size)
-        except Exception:
-            title_font = ImageFont.load_default()
-            body_font = ImageFont.load_default()
+    # Load Dynamic TrueType Fonts (Dynamic Sizing Guaranteed)
+    title_font = get_font(title_font_size, bold=True)
+    body_font = get_font(text_font_size, bold=False)
 
     # Dynamic Wrapping according to font size
     wrap_width_title = max(10, int(1200 / title_font_size))
@@ -188,17 +200,21 @@ def create_slide_image(slide, logo):
     content_text = slide["content"]
     wrapped_content = textwrap.fill(content_text, width=wrap_width_body)
 
-    # Drawing Text with Selected Alignments & Colors
-    x_pos = 60
+    # Position Logic
     if text_align == "center":
         x_pos = 540
+        anchor_val = "ma"
     elif text_align == "right":
         x_pos = 1020
+        anchor_val = "ra"
+    else:
+        x_pos = 60
+        anchor_val = "la"
 
-    draw.multiline_text((x_pos, 220), wrapped_title, fill=title_color, font=title_font, spacing=12, align=text_align, anchor="ma" if text_align=="center" else ("ra" if text_align=="right" else None))
-    draw.multiline_text((x_pos, 520), wrapped_content, fill=body_color, font=body_font, spacing=16, align=text_align, anchor="ma" if text_align=="center" else ("ra" if text_align=="right" else None))
+    draw.multiline_text((x_pos, 220), wrapped_title, fill=title_color, font=title_font, spacing=12, align=text_align, anchor=anchor_val)
+    draw.multiline_text((x_pos, 520), wrapped_content, fill=body_color, font=body_font, spacing=16, align=text_align, anchor=anchor_val)
 
-    # Customizable Bottom Accent Line
+    # Bottom Line Accent
     line_y = 1020
     draw.rectangle([60, line_y - line_thickness, 1020, line_y], fill=line_color)
 
