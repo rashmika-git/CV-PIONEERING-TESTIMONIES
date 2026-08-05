@@ -13,13 +13,18 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling
+# Custom Styling - Reduced animation latency for instant snappy updates
 st.markdown("""
 <style>
     .stApp {
         background: radial-gradient(circle at 10% 20%, rgba(16, 44, 32, 0.95) 0%, rgba(10, 15, 13, 0.98) 90%);
         color: #e0e6e3;
         font-family: 'Inter', sans-serif;
+    }
+    /* Disable element transition fadeout overlay effect */
+    .element-container, .stImage {
+        transition: none !important;
+        opacity: 1 !important;
     }
     .brand-header {
         display: flex;
@@ -127,59 +132,60 @@ st.sidebar.header("🎨 Full Design Customizer")
 
 # Typography Controls
 st.sidebar.subheader("✍️ Typography Settings")
-selected_font = st.sidebar.selectbox("Choose Font Style", list(FONT_URLS.keys()), index=0)
-title_font_size = st.sidebar.slider("Title Font Size", 30, 110, 65)
-text_font_size = st.sidebar.slider("Body Text Font Size", 18, 70, 36)
-text_align = st.sidebar.selectbox("Text Alignment", ["left", "center", "right"])
+selected_font = st.sidebar.selectbox("Choose Font Style", list(FONT_URLS.keys()), index=0, key="cfg_font_family")
+title_font_size = st.sidebar.slider("Title Font Size", 30, 110, 65, key="cfg_title_size")
+text_font_size = st.sidebar.slider("Body Text Font Size", 18, 70, 36, key="cfg_body_size")
+text_align = st.sidebar.selectbox("Text Alignment", ["left", "center", "right"], key="cfg_align")
 
 # Color Controls
 st.sidebar.subheader("🎨 Color Settings")
-title_color = st.sidebar.color_picker("Title Color", "#2ECC71")
-body_color = st.sidebar.color_picker("Body Text Color", "#FFFFFF")
-line_color = st.sidebar.color_picker("Bottom Accent Line Color", "#2ECC71")
+title_color = st.sidebar.color_picker("Title Color", "#2ECC71", key="cfg_title_color")
+body_color = st.sidebar.color_picker("Body Text Color", "#FFFFFF", key="cfg_body_color")
+line_color = st.sidebar.color_picker("Bottom Accent Line Color", "#2ECC71", key="cfg_line_color")
 
 # Layout & Branding Controls
 st.sidebar.subheader("📐 Element Sizes & Overlays")
-logo_scale = st.sidebar.slider("Logo Size", 100, 400, 240)
-overlay_opacity = st.sidebar.slider("Dark Overlay Opacity", 0.0, 0.95, 0.45, 0.05)
-line_thickness = st.sidebar.slider("Accent Line Thickness", 2, 20, 6)
+logo_scale = st.sidebar.slider("Logo Size", 100, 400, 240, key="cfg_logo_size")
+overlay_opacity = st.sidebar.slider("Dark Overlay Opacity", 0.0, 0.95, 0.45, 0.05, key="cfg_overlay")
+line_thickness = st.sidebar.slider("Accent Line Thickness", 2, 20, 6, key="cfg_line_thick")
 
-# --- Element Position Settings (X & Y Axis) ---
+# --- Direct Realtime X & Y Position Controls ---
 st.sidebar.markdown("---")
 st.sidebar.header("🎯 Precise X & Y Positioning")
 
 element_to_move = st.sidebar.selectbox(
     "Select Element to Position", 
-    ["Title Text", "Body Text", "Logo", "Accent Line"]
+    ["Title Text", "Body Text", "Logo", "Accent Line"],
+    key="selected_element"
 )
 
-# Persistent positions using Session State or default values
-if "pos_title_x" not in st.session_state: st.session_state.pos_title_x = 60
-if "pos_title_y" not in st.session_state: st.session_state.pos_title_y = 220
-
-if "pos_body_x" not in st.session_state: st.session_state.pos_body_x = 60
-if "pos_body_y" not in st.session_state: st.session_state.pos_body_y = 520
-
-if "pos_logo_x" not in st.session_state: st.session_state.pos_logo_x = 60
-if "pos_logo_y" not in st.session_state: st.session_state.pos_logo_y = 60
-
-if "pos_line_y" not in st.session_state: st.session_state.pos_line_y = 1020
-
-# Dynamic Sliders based on selected element
+# Render Controls Dynamically with Fixed Keys for Instant UI Binding
 if element_to_move == "Title Text":
-    st.session_state.pos_title_x = st.sidebar.slider("Title X Position (Left/Right)", 0, 1000, st.session_state.pos_title_x)
-    st.session_state.pos_title_y = st.sidebar.slider("Title Y Position (Top/Bottom)", 50, 900, st.session_state.pos_title_y)
+    pos_title_x = st.sidebar.slider("Title X Position (Left/Right)", 0, 1000, 60, key="pos_t_x")
+    pos_title_y = st.sidebar.slider("Title Y Position (Top/Bottom)", 50, 900, 220, key="pos_t_y")
+else:
+    pos_title_x = st.session_state.get("pos_t_x", 60)
+    pos_title_y = st.session_state.get("pos_t_y", 220)
 
-elif element_to_move == "Body Text":
-    st.session_state.pos_body_x = st.sidebar.slider("Body X Position (Left/Right)", 0, 1000, st.session_state.pos_body_x)
-    st.session_state.pos_body_y = st.sidebar.slider("Body Y Position (Top/Bottom)", 100, 950, st.session_state.pos_body_y)
+if element_to_move == "Body Text":
+    pos_body_x = st.sidebar.slider("Body X Position (Left/Right)", 0, 1000, 60, key="pos_b_x")
+    pos_body_y = st.sidebar.slider("Body Y Position (Top/Bottom)", 100, 950, 520, key="pos_b_y")
+else:
+    pos_body_x = st.session_state.get("pos_b_x", 60)
+    pos_body_y = st.session_state.get("pos_b_y", 520)
 
-elif element_to_move == "Logo":
-    st.session_state.pos_logo_x = st.sidebar.slider("Logo X Position (Left/Right)", 0, 900, st.session_state.pos_logo_x)
-    st.session_state.pos_logo_y = st.sidebar.slider("Logo Y Position (Top/Bottom)", 0, 900, st.session_state.pos_logo_y)
+if element_to_move == "Logo":
+    pos_logo_x = st.sidebar.slider("Logo X Position (Left/Right)", 0, 900, 60, key="pos_l_x")
+    pos_logo_y = st.sidebar.slider("Logo Y Position (Top/Bottom)", 0, 900, 60, key="pos_l_y")
+else:
+    pos_logo_x = st.session_state.get("pos_l_x", 60)
+    pos_logo_y = st.session_state.get("pos_l_y", 60)
 
-elif element_to_move == "Accent Line":
-    st.session_state.pos_line_y = st.sidebar.slider("Accent Line Y Position", 800, 1080, st.session_state.pos_line_y)
+if element_to_move == "Accent Line":
+    pos_line_y = st.sidebar.slider("Accent Line Y Position", 800, 1080, 1020, key="pos_line_y")
+else:
+    pos_line_y = st.session_state.get("pos_line_y", 1020)
+
 
 # Session State for Slides
 if "slides" not in st.session_state:
@@ -228,12 +234,12 @@ def create_slide_image(slide, logo):
     canvas = Image.alpha_composite(bg_image, overlay)
     draw = ImageDraw.Draw(canvas)
 
-    # Logo Display with Custom Position
+    # Logo Display with Fast Position Reading
     if logo is not None:
         try:
             l_img = make_logo_white(logo)
             l_img.thumbnail((logo_scale, int(logo_scale * 0.5)), Image.Resampling.LANCZOS)
-            canvas.paste(l_img, (st.session_state.pos_logo_x, st.session_state.pos_logo_y), l_img)
+            canvas.paste(l_img, (pos_logo_x, pos_logo_y), l_img)
         except Exception:
             pass
 
@@ -251,13 +257,12 @@ def create_slide_image(slide, logo):
     content_text = slide["content"]
     wrapped_content = textwrap.fill(content_text, width=wrap_width_body)
 
-    # Draw Title & Body Text with Explicit X & Y Coordinates
-    draw.multiline_text((st.session_state.pos_title_x, st.session_state.pos_title_y), wrapped_title, fill=title_color, font=title_font, spacing=12, align=text_align)
-    draw.multiline_text((st.session_state.pos_body_x, st.session_state.pos_body_y), wrapped_content, fill=body_color, font=body_font, spacing=16, align=text_align)
+    # Draw Title & Body Text Realtime
+    draw.multiline_text((pos_title_x, pos_title_y), wrapped_title, fill=title_color, font=title_font, spacing=12, align=text_align)
+    draw.multiline_text((pos_body_x, pos_body_y), wrapped_content, fill=body_color, font=body_font, spacing=16, align=text_align)
 
     # Bottom Line Accent
-    line_y = st.session_state.pos_line_y
-    draw.rectangle([60, line_y - line_thickness, 1020, line_y], fill=line_color)
+    draw.rectangle([60, pos_line_y - line_thickness, 1020, pos_line_y], fill=line_color)
 
     return canvas.convert("RGB")
 
