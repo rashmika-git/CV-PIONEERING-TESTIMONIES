@@ -57,7 +57,7 @@ def make_logo_white(img):
         return img
 
 # Logo Handling
-st.sidebar.header("🖼️ Branding Settings")
+st.sidebar.header("🖼️ Branding & Logo")
 logo_upload = st.sidebar.file_uploader("Upload Logo (PNG)", type=["png", "jpg", "jpeg"])
 
 top_col1, top_col2 = st.columns([1, 4])
@@ -88,12 +88,27 @@ with top_col1:
 with top_col2:
     st.markdown('<div class="brand-header"><h1 class="brand-title">CV PIONEERING TESTIMONIES</h1></div>', unsafe_allow_html=True)
 
-# --- Global Settings Sidebar ---
+# --- Global Settings Sidebar (Fully Editable Options) ---
 st.sidebar.markdown("---")
-st.sidebar.header("🎨 Styling & Design Options")
-title_font_size = st.sidebar.slider("Title Font Size", 30, 90, 55)
-text_font_size = st.sidebar.slider("Body Text Font Size", 18, 50, 28)
-overlay_opacity = st.sidebar.slider("Dark Overlay Opacity", 0.0, 0.9, 0.45, 0.05)
+st.sidebar.header("🎨 Full Design Customizer")
+
+# Typography Controls
+st.sidebar.subheader("✍️ Typography Settings")
+title_font_size = st.sidebar.slider("Title Font Size", 30, 100, 60)
+text_font_size = st.sidebar.slider("Body Text Font Size", 18, 60, 32)
+text_align = st.sidebar.selectbox("Text Alignment", ["left", "center", "right"])
+
+# Color Controls
+st.sidebar.subheader("🎨 Color Settings")
+title_color = st.sidebar.color_picker("Title Color", "#2ECC71")
+body_color = st.sidebar.color_picker("Body Text Color", "#FFFFFF")
+line_color = st.sidebar.color_picker("Bottom Accent Line Color", "#2ECC71")
+
+# Layout & Branding Controls
+st.sidebar.subheader("📐 Element Sizes & Overlays")
+logo_scale = st.sidebar.slider("Logo Size", 100, 400, 240)
+overlay_opacity = st.sidebar.slider("Dark Overlay Opacity", 0.0, 0.95, 0.45, 0.05)
+line_thickness = st.sidebar.slider("Accent Line Thickness", 2, 20, 6)
 
 # Session State for Slides
 if "slides" not in st.session_state:
@@ -137,57 +152,78 @@ def create_slide_image(slide, logo):
     else:
         bg_image = Image.new("RGBA", (img_width, img_height), (14, 23, 19, 255))
 
+    # Dark Overlay
     overlay = Image.new("RGBA", (img_width, img_height), (0, 0, 0, int(255 * overlay_opacity)))
     canvas = Image.alpha_composite(bg_image, overlay)
     draw = ImageDraw.Draw(canvas)
 
+    # Logo Display
     if logo is not None:
         try:
             l_img = make_logo_white(logo)
-            l_img.thumbnail((220, 90), Image.Resampling.LANCZOS)
+            l_img.thumbnail((logo_scale, int(logo_scale * 0.5)), Image.Resampling.LANCZOS)
             canvas.paste(l_img, (60, 60), l_img)
         except Exception:
             pass
 
+    # Load System Fonts Safely
     try:
-        title_font = ImageFont.truetype("arial.ttf", title_font_size)
-        body_font = ImageFont.truetype("arial.ttf", text_font_size)
+        title_font = ImageFont.truetype("DejaVuSans-Bold.ttf", title_font_size)
+        body_font = ImageFont.truetype("DejaVuSans.ttf", text_font_size)
     except Exception:
-        title_font = ImageFont.load_default()
-        body_font = ImageFont.load_default()
+        try:
+            title_font = ImageFont.truetype("arial.ttf", title_font_size)
+            body_font = ImageFont.truetype("arial.ttf", text_font_size)
+        except Exception:
+            title_font = ImageFont.load_default()
+            body_font = ImageFont.load_default()
+
+    # Dynamic Wrapping according to font size
+    wrap_width_title = max(10, int(1200 / title_font_size))
+    wrap_width_body = max(15, int(1200 / text_font_size))
 
     title_text = slide["title"].upper()
-    wrapped_title = textwrap.fill(title_text, width=22)
-    draw.multiline_text((60, 220), wrapped_title, fill="#2ECC71", font=title_font, spacing=10)
+    wrapped_title = textwrap.fill(title_text, width=wrap_width_title)
 
     content_text = slide["content"]
-    wrapped_content = textwrap.fill(content_text, width=38)
-    draw.multiline_text((60, 520), wrapped_content, fill="#FFFFFF", font=body_font, spacing=12)
+    wrapped_content = textwrap.fill(content_text, width=wrap_width_body)
 
-    draw.rectangle([60, 1000, 1020, 1006], fill="#2ECC71")
+    # Drawing Text with Selected Alignments & Colors
+    x_pos = 60
+    if text_align == "center":
+        x_pos = 540
+    elif text_align == "right":
+        x_pos = 1020
+
+    draw.multiline_text((x_pos, 220), wrapped_title, fill=title_color, font=title_font, spacing=12, align=text_align, anchor="ma" if text_align=="center" else ("ra" if text_align=="right" else None))
+    draw.multiline_text((x_pos, 520), wrapped_content, fill=body_color, font=body_font, spacing=16, align=text_align, anchor="ma" if text_align=="center" else ("ra" if text_align=="right" else None))
+
+    # Customizable Bottom Accent Line
+    line_y = 1020
+    draw.rectangle([60, line_y - line_thickness, 1020, line_y], fill=line_color)
 
     return canvas.convert("RGB")
 
-# --- Main Editor & Preview Grid ---
+# --- Main Editor & Live Preview Grid ---
 col_edit, col_preview = st.columns([1, 1])
 
 generated_images = []
 
 with col_edit:
-    st.subheader("✏️ Edit Content & Backgrounds")
+    st.subheader("✏️ Edit Content & Images")
     for idx, slide in enumerate(st.session_state.slides):
         with st.expander(f"📌 Slide {idx + 1}: {slide['title'][:20]}", expanded=(idx == 0)):
             slide["title"] = st.text_input(f"Title #{idx+1}", value=slide["title"], key=f"title_{idx}")
-            slide["content"] = st.text_area(f"Story Text #{idx+1}", value=slide["content"], height=110, key=f"content_{idx}")
+            slide["content"] = st.text_area(f"Story Text #{idx+1}", value=slide["content"], height=120, key=f"content_{idx}")
             
-            img_file = st.file_uploader(f"Upload Image #{idx+1}", type=["jpg", "png", "jpeg"], key=f"img_{idx}")
+            img_file = st.file_uploader(f"Upload Background Image #{idx+1}", type=["jpg", "png", "jpeg"], key=f"img_{idx}")
             if img_file is not None:
                 slide["image"] = img_file
                 
             slide["brightness"] = st.slider(f"Image Brightness #{idx+1}", 0.2, 1.8, float(slide["brightness"]), 0.1, key=f"bright_{idx}")
 
 with col_preview:
-    st.subheader("👁️ Live Preview")
+    st.subheader("👁️ Live Interactive Preview")
     for idx, slide in enumerate(st.session_state.slides):
         slide_img = create_slide_image(slide, logo_img)
         generated_images.append((f"slide_{idx+1}.png", slide_img))
