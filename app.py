@@ -45,20 +45,23 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Function to safely load dynamic TTF fonts
+# Guaranteed Font Loader with Fallback Download
 @st.cache_resource
-def get_font(size, bold=False):
-    font_filename = "Roboto-Bold.ttf" if bold else "Roboto-Regular.ttf"
-    font_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), font_filename)
+def load_ttf_font(font_name, size):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    font_path = os.path.join(script_dir, font_name)
     
-    # Download font automatically if not exists
     if not os.path.exists(font_path):
-        url = "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf" if bold else "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Regular.ttf"
-        try:
-            urllib.request.urlretrieve(url, font_path)
-        except Exception:
-            pass
-
+        urls = {
+            "Roboto-Bold.ttf": "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf",
+            "Roboto-Regular.ttf": "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Regular.ttf"
+        }
+        if font_name in urls:
+            try:
+                urllib.request.urlretrieve(urls[font_name], font_path)
+            except Exception:
+                pass
+                
     try:
         return ImageFont.truetype(font_path, size)
     except Exception:
@@ -108,15 +111,18 @@ with top_col1:
 with top_col2:
     st.markdown('<div class="brand-header"><h1 class="brand-title">CV PIONEERING TESTIMONIES</h1></div>', unsafe_allow_html=True)
 
-# --- Global Settings Sidebar (Fully Editable Options) ---
+# --- Global Settings Sidebar ---
 st.sidebar.markdown("---")
 st.sidebar.header("🎨 Full Design Customizer")
 
 # Typography Controls
 st.sidebar.subheader("✍️ Typography Settings")
-title_font_size = st.sidebar.slider("Title Font Size", 30, 100, 60)
-text_font_size = st.sidebar.slider("Body Text Font Size", 18, 60, 32)
+title_font_size = st.sidebar.slider("Title Font Size", 30, 110, 65)
+text_font_size = st.sidebar.slider("Body Text Font Size", 18, 70, 36)
 text_align = st.sidebar.selectbox("Text Alignment", ["left", "center", "right"])
+
+title_y_pos = st.sidebar.slider("Title Y Position", 150, 400, 220)
+body_y_pos = st.sidebar.slider("Body Text Y Position", 400, 800, 520)
 
 # Color Controls
 st.sidebar.subheader("🎨 Color Settings")
@@ -186,13 +192,13 @@ def create_slide_image(slide, logo):
         except Exception:
             pass
 
-    # Load Dynamic TrueType Fonts (Dynamic Sizing Guaranteed)
-    title_font = get_font(title_font_size, bold=True)
-    body_font = get_font(text_font_size, bold=False)
+    # Load Dynamic TrueType Fonts
+    title_font = load_ttf_font("Roboto-Bold.ttf", title_font_size)
+    body_font = load_ttf_font("Roboto-Regular.ttf", text_font_size)
 
-    # Dynamic Wrapping according to font size
-    wrap_width_title = max(10, int(1200 / title_font_size))
-    wrap_width_body = max(15, int(1200 / text_font_size))
+    # Dynamic Auto Wrap Calculation
+    wrap_width_title = max(10, int(9500 / title_font_size))
+    wrap_width_body = max(15, int(11000 / text_font_size))
 
     title_text = slide["title"].upper()
     wrapped_title = textwrap.fill(title_text, width=wrap_width_title)
@@ -200,19 +206,17 @@ def create_slide_image(slide, logo):
     content_text = slide["content"]
     wrapped_content = textwrap.fill(content_text, width=wrap_width_body)
 
-    # Position Logic
+    # Precise X-Positioning
     if text_align == "center":
         x_pos = 540
-        anchor_val = "ma"
     elif text_align == "right":
         x_pos = 1020
-        anchor_val = "ra"
     else:
         x_pos = 60
-        anchor_val = "la"
 
-    draw.multiline_text((x_pos, 220), wrapped_title, fill=title_color, font=title_font, spacing=12, align=text_align, anchor=anchor_val)
-    draw.multiline_text((x_pos, 520), wrapped_content, fill=body_color, font=body_font, spacing=16, align=text_align, anchor=anchor_val)
+    # Draw Title & Body Text
+    draw.multiline_text((x_pos, title_y_pos), wrapped_title, fill=title_color, font=title_font, spacing=12, align=text_align)
+    draw.multiline_text((x_pos, body_y_pos), wrapped_content, fill=body_color, font=body_font, spacing=16, align=text_align)
 
     # Bottom Line Accent
     line_y = 1020
