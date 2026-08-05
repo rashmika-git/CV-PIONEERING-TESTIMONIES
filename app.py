@@ -54,7 +54,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Reliable Fonts
 FONT_URLS = {
     "Roboto": "https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-700-normal.ttf",
     "Montserrat": "https://cdn.jsdelivr.net/fontsource/fonts/montserrat@latest/latin-700-normal.ttf",
@@ -64,8 +63,8 @@ FONT_URLS = {
     "Playfair Display": "https://cdn.jsdelivr.net/fontsource/fonts/playfair-display@latest/latin-700-normal.ttf"
 }
 
-# Cached Dynamic Font Fetcher
-@st.cache_resource
+# Fast Dynamic Font Fetcher with strict timeout to prevent infinite buffer
+@st.cache_resource(show_spinner=False)
 def get_custom_font(font_name, size):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     font_filename = f"{font_name.replace(' ', '_')}.ttf"
@@ -73,30 +72,22 @@ def get_custom_font(font_name, size):
     
     if not os.path.exists(font_path) and font_name in FONT_URLS:
         try:
-            response = requests.get(FONT_URLS[font_name], timeout=5)
+            # 2 second strict timeout to avoid freezing
+            response = requests.get(FONT_URLS[font_name], timeout=2)
             if response.status_code == 200:
                 with open(font_path, "wb") as f:
                     f.write(response.content)
         except Exception:
             pass
 
-    local_default = os.path.join(script_dir, "Roboto-Bold.ttf")
-
     if os.path.exists(font_path):
         try:
             return ImageFont.truetype(font_path, size)
         except Exception:
             pass
-            
-    if os.path.exists(local_default):
-        try:
-            return ImageFont.truetype(local_default, size)
-        except Exception:
-            pass
 
     return ImageFont.load_default()
 
-# Helper function for logo
 def make_logo_white(img):
     try:
         img = img.convert("RGBA")
@@ -108,7 +99,7 @@ def make_logo_white(img):
     except Exception:
         return img
 
-# Session State Initialization
+# State Management
 if "slides" not in st.session_state:
     st.session_state.slides = [
         {
@@ -136,7 +127,7 @@ if "slide_counter" not in st.session_state:
 if "deleted_slides_stack" not in st.session_state:
     st.session_state.deleted_slides_stack = []
 
-# Logo Handling
+# Sidebar Branding
 st.sidebar.header("🖼️ Branding & Global Settings")
 logo_upload = st.sidebar.file_uploader("Upload Logo (PNG)", type=["png", "jpg", "jpeg"])
 
@@ -168,7 +159,6 @@ with top_col1:
 with top_col2:
     st.markdown('<div class="brand-header"><h1 class="brand-title">CV PIONEERING TESTIMONIES</h1></div>', unsafe_allow_html=True)
 
-# Global Settings
 selected_font = st.sidebar.selectbox("Choose Global Font Style", list(FONT_URLS.keys()), index=0, key="cfg_font_family")
 
 st.sidebar.markdown("---")
@@ -184,7 +174,6 @@ line_color = st.sidebar.color_picker("Line Color", "#2ECC71", key="cfg_line_colo
 pos_line_y = st.sidebar.slider("Line Y Position", 800, 1080, 1020, step=10, key="pos_line_y")
 line_thickness = st.sidebar.slider("Line Thickness", 2, 20, 6, key="cfg_line_thick")
 
-# Manage Slides Sidebar Controls
 st.sidebar.markdown("---")
 st.sidebar.header("📑 Carousel Slides")
 
@@ -209,7 +198,6 @@ if st.sidebar.button("➕ Add New Slide"):
     })
     st.rerun()
 
-# Undo Global Delete Button if stack has items
 if st.session_state.deleted_slides_stack:
     if st.sidebar.button("↩️ Undo Delete"):
         last_deleted = st.session_state.deleted_slides_stack.pop()
@@ -217,7 +205,6 @@ if st.session_state.deleted_slides_stack:
         st.session_state.slides.insert(index_to_restore, last_deleted["slide"])
         st.rerun()
 
-# --- Fast Canvas Generator Function ---
 def render_canvas(slide, logo, target_size=(1080, 1080)):
     img_width, img_height = target_size
     scale_factor = img_width / 1080.0
@@ -237,7 +224,6 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
     canvas = Image.alpha_composite(bg_image, overlay)
     draw = ImageDraw.Draw(canvas)
 
-    # Logo
     if logo is not None:
         try:
             l_img = make_logo_white(logo)
@@ -247,7 +233,6 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
         except Exception:
             pass
 
-    # Scaled Fonts
     t_size = int(slide.get("title_size", 65) * scale_factor)
     b_size = int(slide.get("content_size", 36) * scale_factor)
     
@@ -267,11 +252,9 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
     wrapped_content_lines = [textwrap.fill(line, width=wrap_width_body) for line in content_lines if line.strip()]
     wrapped_content = "\n".join(wrapped_content_lines) if wrapped_content_lines else raw_content
 
-    # Alignments
     title_align_mode = slide.get("title_align", "left")
     body_align_mode = slide.get("content_align", "left")
 
-    # Draw Title Text
     draw.multiline_text(
         (int(slide.get("title_x", 60) * scale_factor), int(slide.get("title_y", 220) * scale_factor)), 
         wrapped_title, 
@@ -281,7 +264,6 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
         align=title_align_mode
     )
 
-    # Draw Body Text
     draw.multiline_text(
         (int(slide.get("content_x", 60) * scale_factor), int(slide.get("content_y", 520) * scale_factor)), 
         wrapped_content, 
@@ -291,7 +273,6 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
         align=body_align_mode
     )
 
-    # Accent Line
     draw.rectangle([
         int(60 * scale_factor), 
         int((pos_line_y - line_thickness) * scale_factor), 
@@ -301,21 +282,18 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
 
     return canvas.convert("RGB")
 
-# Main Interface
 col_edit, col_preview = st.columns([1.1, 0.9])
 
 with col_edit:
     st.subheader("✏️ Content & Element Editors")
     
-    # Render notification banner if last item was deleted
     if st.session_state.deleted_slides_stack:
-        st.info("💡 A slide was recently deleted. You can restore it using the '↩️ Undo Delete' button in the sidebar.")
+        st.info("💡 A slide was recently deleted. Restore it using '↩️ Undo Delete' in the sidebar.")
 
     for idx, slide in enumerate(list(st.session_state.slides)):
         slide_id = slide["id"]
         with st.expander(f"📌 Slide {idx + 1}: {slide['title'][:25]}", expanded=(idx == 0)):
             
-            # --- Per-Slide Quick Actions Bar ---
             btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 2])
             
             with btn_col1:
@@ -340,7 +318,6 @@ with col_edit:
 
             st.markdown("---")
 
-            # --- 1. TITLE SETTINGS ---
             st.markdown("**1. Title Headline**")
             slide["title"] = st.text_area(f"Title Text #{idx+1}", value=slide["title"], height=70, key=f"title_{slide_id}")
             
@@ -364,7 +341,6 @@ with col_edit:
 
             st.markdown("---")
 
-            # --- 2. BODY SETTINGS ---
             st.markdown("**2. Story Text / Content**")
             slide["content"] = st.text_area(f"Story Text #{idx+1}", value=slide["content"], height=110, key=f"content_{slide_id}")
             
@@ -388,7 +364,6 @@ with col_edit:
 
             st.markdown("---")
 
-            # --- 3. BACKGROUND IMAGE SETTINGS ---
             st.markdown("**3. Background Image & Brightness**")
             img_file = st.file_uploader(f"Upload Image #{idx+1}", type=["jpg", "png", "jpeg"], key=f"img_{slide_id}")
             if img_file is not None:
@@ -402,7 +377,6 @@ with col_preview:
         preview_img = render_canvas(slide, logo_img, target_size=(450, 450))
         st.image(preview_img, caption=f"Slide {idx+1} Preview")
 
-# --- Export & Download Section ---
 st.markdown("---")
 st.subheader("📥 Export Options (High Quality 1080p)")
 
