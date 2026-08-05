@@ -4,6 +4,7 @@ import io
 import zipfile
 import textwrap
 import os
+import urllib.request
 
 st.set_page_config(
     page_title="CV PIONEERING TESTIMONIES",
@@ -44,15 +45,36 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Safe Local Font Loader Function
-def load_font(size):
+# Google Fonts Collection
+FONT_URLS = {
+    "Roboto": "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf",
+    "Montserrat": "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf",
+    "Oswald": "https://github.com/google/fonts/raw/main/ofl/oswald/Oswald-Bold.ttf",
+    "Poppins": "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Bold.ttf",
+    "Lora": "https://github.com/google/fonts/raw/main/ofl/lora/Lora-Bold.ttf",
+    "Playfair Display": "https://github.com/google/fonts/raw/main/ofl/playfairdisplay/PlayfairDisplay-Bold.ttf"
+}
+
+# Dynamic Font Fetcher
+@st.cache_resource
+def get_custom_font(font_name, size):
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    font_path = os.path.join(script_dir, "Roboto-Bold.ttf")
+    font_filename = f"{font_name.replace(' ', '_')}.ttf"
+    font_path = os.path.join(script_dir, font_filename)
     
+    if not os.path.exists(font_path) and font_name in FONT_URLS:
+        try:
+            urllib.request.urlretrieve(FONT_URLS[font_name], font_path)
+        except Exception:
+            pass
+
+    local_default = os.path.join(script_dir, "Roboto-Bold.ttf")
+
     if os.path.exists(font_path):
         return ImageFont.truetype(font_path, size)
+    elif os.path.exists(local_default):
+        return ImageFont.truetype(local_default, size)
     else:
-        # Fallback if file not found in github
         return ImageFont.load_default()
 
 # Helper function to convert black logo to white safely
@@ -99,23 +121,16 @@ with top_col1:
 with top_col2:
     st.markdown('<div class="brand-header"><h1 class="brand-title">CV PIONEERING TESTIMONIES</h1></div>', unsafe_allow_html=True)
 
-# Check Font Availability Alert
-font_check_path = os.path.join(script_dir, "Roboto-Bold.ttf")
-if not os.path.exists(font_check_path):
-    st.warning("⚠️ 'Roboto-Bold.ttf' font file එක GitHub එකට upload කර නොමැති නිසා Font Size වෙනස් කිරීම සීමා වී ඇත. කරුණාකර Roboto-Bold.ttf file එක repository එකට upload කරන්න.")
-
 # --- Global Settings Sidebar ---
 st.sidebar.markdown("---")
 st.sidebar.header("🎨 Full Design Customizer")
 
 # Typography Controls
 st.sidebar.subheader("✍️ Typography Settings")
+selected_font = st.sidebar.selectbox("Choose Font Style", list(FONT_URLS.keys()), index=0)
 title_font_size = st.sidebar.slider("Title Font Size", 30, 110, 65)
 text_font_size = st.sidebar.slider("Body Text Font Size", 18, 70, 36)
 text_align = st.sidebar.selectbox("Text Alignment", ["left", "center", "right"])
-
-title_y_pos = st.sidebar.slider("Title Y Position", 150, 400, 220)
-body_y_pos = st.sidebar.slider("Body Text Y Position", 400, 800, 520)
 
 # Color Controls
 st.sidebar.subheader("🎨 Color Settings")
@@ -128,6 +143,43 @@ st.sidebar.subheader("📐 Element Sizes & Overlays")
 logo_scale = st.sidebar.slider("Logo Size", 100, 400, 240)
 overlay_opacity = st.sidebar.slider("Dark Overlay Opacity", 0.0, 0.95, 0.45, 0.05)
 line_thickness = st.sidebar.slider("Accent Line Thickness", 2, 20, 6)
+
+# --- Element Position Settings (X & Y Axis) ---
+st.sidebar.markdown("---")
+st.sidebar.header("🎯 Precise X & Y Positioning")
+
+element_to_move = st.sidebar.selectbox(
+    "Select Element to Position", 
+    ["Title Text", "Body Text", "Logo", "Accent Line"]
+)
+
+# Persistent positions using Session State or default values
+if "pos_title_x" not in st.session_state: st.session_state.pos_title_x = 60
+if "pos_title_y" not in st.session_state: st.session_state.pos_title_y = 220
+
+if "pos_body_x" not in st.session_state: st.session_state.pos_body_x = 60
+if "pos_body_y" not in st.session_state: st.session_state.pos_body_y = 520
+
+if "pos_logo_x" not in st.session_state: st.session_state.pos_logo_x = 60
+if "pos_logo_y" not in st.session_state: st.session_state.pos_logo_y = 60
+
+if "pos_line_y" not in st.session_state: st.session_state.pos_line_y = 1020
+
+# Dynamic Sliders based on selected element
+if element_to_move == "Title Text":
+    st.session_state.pos_title_x = st.sidebar.slider("Title X Position (Left/Right)", 0, 1000, st.session_state.pos_title_x)
+    st.session_state.pos_title_y = st.sidebar.slider("Title Y Position (Top/Bottom)", 50, 900, st.session_state.pos_title_y)
+
+elif element_to_move == "Body Text":
+    st.session_state.pos_body_x = st.sidebar.slider("Body X Position (Left/Right)", 0, 1000, st.session_state.pos_body_x)
+    st.session_state.pos_body_y = st.sidebar.slider("Body Y Position (Top/Bottom)", 100, 950, st.session_state.pos_body_y)
+
+elif element_to_move == "Logo":
+    st.session_state.pos_logo_x = st.sidebar.slider("Logo X Position (Left/Right)", 0, 900, st.session_state.pos_logo_x)
+    st.session_state.pos_logo_y = st.sidebar.slider("Logo Y Position (Top/Bottom)", 0, 900, st.session_state.pos_logo_y)
+
+elif element_to_move == "Accent Line":
+    st.session_state.pos_line_y = st.sidebar.slider("Accent Line Y Position", 800, 1080, st.session_state.pos_line_y)
 
 # Session State for Slides
 if "slides" not in st.session_state:
@@ -176,18 +228,18 @@ def create_slide_image(slide, logo):
     canvas = Image.alpha_composite(bg_image, overlay)
     draw = ImageDraw.Draw(canvas)
 
-    # Logo Display
+    # Logo Display with Custom Position
     if logo is not None:
         try:
             l_img = make_logo_white(logo)
             l_img.thumbnail((logo_scale, int(logo_scale * 0.5)), Image.Resampling.LANCZOS)
-            canvas.paste(l_img, (60, 60), l_img)
+            canvas.paste(l_img, (st.session_state.pos_logo_x, st.session_state.pos_logo_y), l_img)
         except Exception:
             pass
 
-    # Load Fonts using local loader
-    title_font = load_font(title_font_size)
-    body_font = load_font(text_font_size)
+    # Dynamic Font Loader
+    title_font = get_custom_font(selected_font, title_font_size)
+    body_font = get_custom_font(selected_font, text_font_size)
 
     # Dynamic Auto Wrap Calculation
     wrap_width_title = max(10, int(9500 / title_font_size))
@@ -199,20 +251,12 @@ def create_slide_image(slide, logo):
     content_text = slide["content"]
     wrapped_content = textwrap.fill(content_text, width=wrap_width_body)
 
-    # Precise X-Positioning
-    if text_align == "center":
-        x_pos = 540
-    elif text_align == "right":
-        x_pos = 1020
-    else:
-        x_pos = 60
-
-    # Draw Text
-    draw.multiline_text((x_pos, title_y_pos), wrapped_title, fill=title_color, font=title_font, spacing=12, align=text_align)
-    draw.multiline_text((x_pos, body_y_pos), wrapped_content, fill=body_color, font=body_font, spacing=16, align=text_align)
+    # Draw Title & Body Text with Explicit X & Y Coordinates
+    draw.multiline_text((st.session_state.pos_title_x, st.session_state.pos_title_y), wrapped_title, fill=title_color, font=title_font, spacing=12, align=text_align)
+    draw.multiline_text((st.session_state.pos_body_x, st.session_state.pos_body_y), wrapped_content, fill=body_color, font=body_font, spacing=16, align=text_align)
 
     # Bottom Line Accent
-    line_y = 1020
+    line_y = st.session_state.pos_line_y
     draw.rectangle([60, line_y - line_thickness, 1020, line_y], fill=line_color)
 
     return canvas.convert("RGB")
