@@ -4,7 +4,6 @@ import io
 import zipfile
 import textwrap
 import os
-import urllib.request
 
 st.set_page_config(
     page_title="CV PIONEERING TESTIMONIES",
@@ -45,26 +44,15 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Guaranteed Font Loader with Fallback Download
-@st.cache_resource
-def load_ttf_font(font_name, size):
+# Safe Local Font Loader Function
+def load_font(size):
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    font_path = os.path.join(script_dir, font_name)
+    font_path = os.path.join(script_dir, "Roboto-Bold.ttf")
     
-    if not os.path.exists(font_path):
-        urls = {
-            "Roboto-Bold.ttf": "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf",
-            "Roboto-Regular.ttf": "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Regular.ttf"
-        }
-        if font_name in urls:
-            try:
-                urllib.request.urlretrieve(urls[font_name], font_path)
-            except Exception:
-                pass
-                
-    try:
+    if os.path.exists(font_path):
         return ImageFont.truetype(font_path, size)
-    except Exception:
+    else:
+        # Fallback if file not found in github
         return ImageFont.load_default()
 
 # Helper function to convert black logo to white safely
@@ -110,6 +98,11 @@ with top_col1:
 
 with top_col2:
     st.markdown('<div class="brand-header"><h1 class="brand-title">CV PIONEERING TESTIMONIES</h1></div>', unsafe_allow_html=True)
+
+# Check Font Availability Alert
+font_check_path = os.path.join(script_dir, "Roboto-Bold.ttf")
+if not os.path.exists(font_check_path):
+    st.warning("⚠️ 'Roboto-Bold.ttf' font file එක GitHub එකට upload කර නොමැති නිසා Font Size වෙනස් කිරීම සීමා වී ඇත. කරුණාකර Roboto-Bold.ttf file එක repository එකට upload කරන්න.")
 
 # --- Global Settings Sidebar ---
 st.sidebar.markdown("---")
@@ -192,9 +185,9 @@ def create_slide_image(slide, logo):
         except Exception:
             pass
 
-    # Load Dynamic TrueType Fonts
-    title_font = load_ttf_font("Roboto-Bold.ttf", title_font_size)
-    body_font = load_ttf_font("Roboto-Regular.ttf", text_font_size)
+    # Load Fonts using local loader
+    title_font = load_font(title_font_size)
+    body_font = load_font(text_font_size)
 
     # Dynamic Auto Wrap Calculation
     wrap_width_title = max(10, int(9500 / title_font_size))
@@ -214,7 +207,7 @@ def create_slide_image(slide, logo):
     else:
         x_pos = 60
 
-    # Draw Title & Body Text
+    # Draw Text
     draw.multiline_text((x_pos, title_y_pos), wrapped_title, fill=title_color, font=title_font, spacing=12, align=text_align)
     draw.multiline_text((x_pos, body_y_pos), wrapped_content, fill=body_color, font=body_font, spacing=16, align=text_align)
 
