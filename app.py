@@ -128,7 +128,6 @@ if "deleted_slides_stack" not in st.session_state:
 # Sidebar Controls
 st.sidebar.header("🎯 Mode & Canvas Format")
 
-# 1. Target Audience / Usage Mode
 usage_mode = st.sidebar.radio(
     "Usage Mode",
     ["🏢 Internal Use (With Logo)", "🌐 External Share (No Logo)"],
@@ -137,7 +136,6 @@ usage_mode = st.sidebar.radio(
 )
 show_logo = "Internal" in usage_mode
 
-# 2. Canvas Size Selection
 canvas_format = st.sidebar.selectbox(
     "Canvas Size / Format",
     ["Square Carousel (1080 x 1080)", "A4 Document / Poster (2480 x 3508)"],
@@ -201,8 +199,10 @@ else:
 st.sidebar.subheader("🎨 Background & Accent")
 overlay_opacity = st.sidebar.slider("Dark Overlay Opacity", 0.0, 0.95, 0.45, 0.05, key="cfg_overlay")
 line_color = st.sidebar.color_picker("Line Color", "#2ECC71", key="cfg_line_color")
-pos_line_y = st.sidebar.slider("Line Y Position", 800, 3400, 1020 if "A4" not in canvas_format else 3300, step=10, key="pos_line_y")
-line_thickness = st.sidebar.slider("Line Thickness", 2, 40, 6 if "A4" not in canvas_format else 14, key="cfg_line_thick")
+
+# Dynamic Y offset relative to bottom margin (0% to 20% from bottom)
+line_bottom_offset = st.sidebar.slider("Line Offset from Bottom (%)", 1, 20, 5, step=1, key="pos_line_offset")
+line_thickness = st.sidebar.slider("Line Thickness", 2, 40, 8, key="cfg_line_thick")
 
 st.sidebar.markdown("---")
 st.sidebar.header("📑 Carousel / Page Slides")
@@ -235,11 +235,9 @@ if st.session_state.deleted_slides_stack:
         st.session_state.slides.insert(index_to_restore, last_deleted["slide"])
         st.rerun()
 
-# --- Canvas Renderer with Dynamic Dimensions ---
+# --- Responsive Renderer ---
 def render_canvas(slide, logo, target_size=(1080, 1080)):
     img_width, img_height = target_size
-    
-    # Base scale reference is 1080p
     scale_factor = img_width / 1080.0
 
     if slide.get("image") is not None:
@@ -257,7 +255,6 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
     canvas = Image.alpha_composite(bg_image, overlay)
     draw = ImageDraw.Draw(canvas)
 
-    # Render Logo ONLY if External/Internal mode allows
     if show_logo and logo is not None:
         try:
             l_img = make_logo_white(logo)
@@ -273,7 +270,6 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
     title_font = get_custom_font(selected_font, max(10, t_size))
     body_font = get_custom_font(selected_font, max(10, b_size))
 
-    # Calculate text wrapping limits based on image width
     wrap_width_title = max(10, int((img_width * 8.8) / (slide.get("title_size", 65) * scale_factor)))
     wrap_width_body = max(15, int((img_width * 10.2) / (slide.get("content_size", 36) * scale_factor)))
 
@@ -308,11 +304,18 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
         align=body_align_mode
     )
 
+    # --- DYNAMIC ACCENT LINE RECTANGLE ---
+    margin_x = int(60 * scale_factor)
+    scaled_thick = max(1, int(line_thickness * scale_factor))
+    
+    # Position line relative to image height automatically
+    line_y_abs = int(img_height * (1.0 - (line_bottom_offset / 100.0)))
+    
     draw.rectangle([
-        int(60 * scale_factor), 
-        int((pos_line_y - line_thickness) * scale_factor), 
-        int((img_width - 60) * scale_factor), 
-        int(pos_line_y * scale_factor)
+        margin_x, 
+        line_y_abs - scaled_thick, 
+        img_width - margin_x, 
+        line_y_abs
     ], fill=line_color)
 
     return canvas.convert("RGB")
