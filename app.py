@@ -134,7 +134,8 @@ usage_mode = st.sidebar.radio(
     index=0,
     key="cfg_usage_mode"
 )
-show_logo = "Internal" in usage_mode
+# Controls whether logo appears inside the exported/preview slides
+show_logo_on_slide = "Internal" in usage_mode
 
 canvas_format = st.sidebar.selectbox(
     "Canvas Size / Format",
@@ -156,31 +157,30 @@ logo_upload = st.sidebar.file_uploader("Upload Custom Logo (PNG)", type=["png", 
 
 top_col1, top_col2 = st.columns([1, 4])
 
+# Always load logo for the Website Header
 logo_img = None
 script_dir = os.path.dirname(os.path.abspath(__file__))
 default_logo_path = os.path.join(script_dir, "assets", "logo.png")
 
-if show_logo:
-    if logo_upload is not None:
-        try:
-            logo_img = Image.open(logo_upload)
-        except Exception:
-            pass
-    elif os.path.exists(default_logo_path):
-        try:
-            logo_img = Image.open(default_logo_path)
-        except Exception:
-            pass
+if logo_upload is not None:
+    try:
+        logo_img = Image.open(logo_upload)
+    except Exception:
+        pass
+elif os.path.exists(default_logo_path):
+    try:
+        logo_img = Image.open(default_logo_path)
+    except Exception:
+        pass
 
+# ALWAYS show Logo on the Website Header
 with top_col1:
-    if show_logo and logo_img is not None:
+    if logo_img is not None:
         try:
             proc_logo = make_logo_white(logo_img)
             st.image(proc_logo, width=180)
         except Exception:
             st.image(logo_img, width=180)
-    elif not show_logo:
-        st.caption("🔒 *External Mode (Logo Hidden)*")
 
 with top_col2:
     st.markdown('<div class="brand-header"><h1 class="brand-title">CV PIONEERING TESTIMONIES</h1></div>', unsafe_allow_html=True)
@@ -188,19 +188,19 @@ with top_col2:
 selected_font = st.sidebar.selectbox("Choose Global Font Style", list(FONT_URLS.keys()), index=0, key="cfg_font_family")
 
 st.sidebar.markdown("---")
-if show_logo:
-    st.sidebar.subheader("📐 Logo Settings")
-    logo_scale = st.sidebar.slider("Logo Size", 100, 500, 240, step=10, key="cfg_logo_size")
-    pos_logo_x = st.sidebar.slider("Logo Position X", 0, 2000, 60, step=10, key="pos_l_x")
-    pos_logo_y = st.sidebar.slider("Logo Position Y", 0, 2000, 60, step=10, key="pos_l_y")
-else:
-    logo_scale, pos_logo_x, pos_logo_y = 240, 60, 60
+
+# Logo Controls in Sidebar
+st.sidebar.subheader("📐 Slide Logo Settings")
+if not show_logo_on_slide:
+    st.sidebar.caption("🔒 *External Mode Active: Logo is hidden on slides.*")
+
+logo_scale = st.sidebar.slider("Logo Size", 100, 500, 240, step=10, key="cfg_logo_size")
+pos_logo_x = st.sidebar.slider("Logo Position X", 0, 2000, 60, step=10, key="pos_l_x")
+pos_logo_y = st.sidebar.slider("Logo Position Y", 0, 2000, 60, step=10, key="pos_l_y")
 
 st.sidebar.subheader("🎨 Background & Accent")
 overlay_opacity = st.sidebar.slider("Dark Overlay Opacity", 0.0, 0.95, 0.45, 0.05, key="cfg_overlay")
 line_color = st.sidebar.color_picker("Line Color", "#2ECC71", key="cfg_line_color")
-
-# Dynamic Y offset relative to bottom margin (0% to 20% from bottom)
 line_bottom_offset = st.sidebar.slider("Line Offset from Bottom (%)", 1, 20, 5, step=1, key="pos_line_offset")
 line_thickness = st.sidebar.slider("Line Thickness", 2, 40, 8, key="cfg_line_thick")
 
@@ -235,7 +235,7 @@ if st.session_state.deleted_slides_stack:
         st.session_state.slides.insert(index_to_restore, last_deleted["slide"])
         st.rerun()
 
-# --- Responsive Renderer ---
+# --- Responsive Canvas Renderer ---
 def render_canvas(slide, logo, target_size=(1080, 1080)):
     img_width, img_height = target_size
     scale_factor = img_width / 1080.0
@@ -255,7 +255,8 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
     canvas = Image.alpha_composite(bg_image, overlay)
     draw = ImageDraw.Draw(canvas)
 
-    if show_logo and logo is not None:
+    # Render Logo ON SLIDE ONLY IF show_logo_on_slide IS TRUE
+    if show_logo_on_slide and logo is not None:
         try:
             l_img = make_logo_white(logo)
             scaled_scale = int(logo_scale * scale_factor)
@@ -304,11 +305,8 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
         align=body_align_mode
     )
 
-    # --- DYNAMIC ACCENT LINE RECTANGLE ---
     margin_x = int(60 * scale_factor)
     scaled_thick = max(1, int(line_thickness * scale_factor))
-    
-    # Position line relative to image height automatically
     line_y_abs = int(img_height * (1.0 - (line_bottom_offset / 100.0)))
     
     draw.rectangle([
