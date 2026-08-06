@@ -63,7 +63,6 @@ FONT_URLS = {
     "Playfair Display": "https://cdn.jsdelivr.net/fontsource/fonts/playfair-display@latest/latin-700-normal.ttf"
 }
 
-# Fast Dynamic Font Fetcher with strict timeout to prevent infinite buffer
 @st.cache_resource(show_spinner=False)
 def get_custom_font(font_name, size):
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -72,7 +71,6 @@ def get_custom_font(font_name, size):
     
     if not os.path.exists(font_path) and font_name in FONT_URLS:
         try:
-            # 2 second strict timeout to avoid freezing
             response = requests.get(FONT_URLS[font_name], timeout=2)
             if response.status_code == 200:
                 with open(font_path, "wb") as f:
@@ -127,9 +125,36 @@ if "slide_counter" not in st.session_state:
 if "deleted_slides_stack" not in st.session_state:
     st.session_state.deleted_slides_stack = []
 
-# Sidebar Branding
+# Sidebar Controls
+st.sidebar.header("🎯 Mode & Canvas Format")
+
+# 1. Target Audience / Usage Mode
+usage_mode = st.sidebar.radio(
+    "Usage Mode",
+    ["🏢 Internal Use (With Logo)", "🌐 External Share (No Logo)"],
+    index=0,
+    key="cfg_usage_mode"
+)
+show_logo = "Internal" in usage_mode
+
+# 2. Canvas Size Selection
+canvas_format = st.sidebar.selectbox(
+    "Canvas Size / Format",
+    ["Square Carousel (1080 x 1080)", "A4 Document / Poster (2480 x 3508)"],
+    index=0,
+    key="cfg_canvas_format"
+)
+
+if "A4" in canvas_format:
+    EXPORT_DIMENSIONS = (2480, 3508)
+    PREVIEW_DIMENSIONS = (450, 636)
+else:
+    EXPORT_DIMENSIONS = (1080, 1080)
+    PREVIEW_DIMENSIONS = (450, 450)
+
+st.sidebar.markdown("---")
 st.sidebar.header("🖼️ Branding & Global Settings")
-logo_upload = st.sidebar.file_uploader("Upload Logo (PNG)", type=["png", "jpg", "jpeg"])
+logo_upload = st.sidebar.file_uploader("Upload Custom Logo (PNG)", type=["png", "jpg", "jpeg"])
 
 top_col1, top_col2 = st.columns([1, 4])
 
@@ -137,24 +162,27 @@ logo_img = None
 script_dir = os.path.dirname(os.path.abspath(__file__))
 default_logo_path = os.path.join(script_dir, "assets", "logo.png")
 
-if logo_upload is not None:
-    try:
-        logo_img = Image.open(logo_upload)
-    except Exception:
-        pass
-elif os.path.exists(default_logo_path):
-    try:
-        logo_img = Image.open(default_logo_path)
-    except Exception:
-        pass
+if show_logo:
+    if logo_upload is not None:
+        try:
+            logo_img = Image.open(logo_upload)
+        except Exception:
+            pass
+    elif os.path.exists(default_logo_path):
+        try:
+            logo_img = Image.open(default_logo_path)
+        except Exception:
+            pass
 
 with top_col1:
-    if logo_img is not None:
+    if show_logo and logo_img is not None:
         try:
             proc_logo = make_logo_white(logo_img)
             st.image(proc_logo, width=180)
         except Exception:
             st.image(logo_img, width=180)
+    elif not show_logo:
+        st.caption("🔒 *External Mode (Logo Hidden)*")
 
 with top_col2:
     st.markdown('<div class="brand-header"><h1 class="brand-title">CV PIONEERING TESTIMONIES</h1></div>', unsafe_allow_html=True)
@@ -162,20 +190,22 @@ with top_col2:
 selected_font = st.sidebar.selectbox("Choose Global Font Style", list(FONT_URLS.keys()), index=0, key="cfg_font_family")
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("📐 Logo & Background Overlay")
-logo_scale = st.sidebar.slider("Logo Size", 100, 400, 240, step=10, key="cfg_logo_size")
-pos_logo_x = st.sidebar.slider("Logo Position X", 0, 900, 60, step=10, key="pos_l_x")
-pos_logo_y = st.sidebar.slider("Logo Position Y", 0, 900, 60, step=10, key="pos_l_y")
+if show_logo:
+    st.sidebar.subheader("📐 Logo Settings")
+    logo_scale = st.sidebar.slider("Logo Size", 100, 500, 240, step=10, key="cfg_logo_size")
+    pos_logo_x = st.sidebar.slider("Logo Position X", 0, 2000, 60, step=10, key="pos_l_x")
+    pos_logo_y = st.sidebar.slider("Logo Position Y", 0, 2000, 60, step=10, key="pos_l_y")
+else:
+    logo_scale, pos_logo_x, pos_logo_y = 240, 60, 60
+
+st.sidebar.subheader("🎨 Background & Accent")
 overlay_opacity = st.sidebar.slider("Dark Overlay Opacity", 0.0, 0.95, 0.45, 0.05, key="cfg_overlay")
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("➖ Bottom Accent Line")
 line_color = st.sidebar.color_picker("Line Color", "#2ECC71", key="cfg_line_color")
-pos_line_y = st.sidebar.slider("Line Y Position", 800, 1080, 1020, step=10, key="pos_line_y")
-line_thickness = st.sidebar.slider("Line Thickness", 2, 20, 6, key="cfg_line_thick")
+pos_line_y = st.sidebar.slider("Line Y Position", 800, 3400, 1020 if "A4" not in canvas_format else 3300, step=10, key="pos_line_y")
+line_thickness = st.sidebar.slider("Line Thickness", 2, 40, 6 if "A4" not in canvas_format else 14, key="cfg_line_thick")
 
 st.sidebar.markdown("---")
-st.sidebar.header("📑 Carousel Slides")
+st.sidebar.header("📑 Carousel / Page Slides")
 
 if st.sidebar.button("➕ Add New Slide"):
     st.session_state.slide_counter += 1
@@ -205,8 +235,11 @@ if st.session_state.deleted_slides_stack:
         st.session_state.slides.insert(index_to_restore, last_deleted["slide"])
         st.rerun()
 
+# --- Canvas Renderer with Dynamic Dimensions ---
 def render_canvas(slide, logo, target_size=(1080, 1080)):
     img_width, img_height = target_size
+    
+    # Base scale reference is 1080p
     scale_factor = img_width / 1080.0
 
     if slide.get("image") is not None:
@@ -224,7 +257,8 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
     canvas = Image.alpha_composite(bg_image, overlay)
     draw = ImageDraw.Draw(canvas)
 
-    if logo is not None:
+    # Render Logo ONLY if External/Internal mode allows
+    if show_logo and logo is not None:
         try:
             l_img = make_logo_white(logo)
             scaled_scale = int(logo_scale * scale_factor)
@@ -239,8 +273,9 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
     title_font = get_custom_font(selected_font, max(10, t_size))
     body_font = get_custom_font(selected_font, max(10, b_size))
 
-    wrap_width_title = max(10, int(9500 / slide.get("title_size", 65)))
-    wrap_width_body = max(15, int(11000 / slide.get("content_size", 36)))
+    # Calculate text wrapping limits based on image width
+    wrap_width_title = max(10, int((img_width * 8.8) / (slide.get("title_size", 65) * scale_factor)))
+    wrap_width_body = max(15, int((img_width * 10.2) / (slide.get("content_size", 36) * scale_factor)))
 
     raw_title = str(slide.get("title", ""))
     title_lines = raw_title.upper().split('\n')
@@ -276,7 +311,7 @@ def render_canvas(slide, logo, target_size=(1080, 1080)):
     draw.rectangle([
         int(60 * scale_factor), 
         int((pos_line_y - line_thickness) * scale_factor), 
-        int(1020 * scale_factor), 
+        int((img_width - 60) * scale_factor), 
         int(pos_line_y * scale_factor)
     ], fill=line_color)
 
@@ -323,13 +358,13 @@ with col_edit:
             
             t_col1, t_col2, t_col3, t_col4 = st.columns([2, 1.2, 1.5, 1.5])
             with t_col1:
-                slide["title_size"] = st.slider("Title Size", 30, 110, slide.get("title_size", 65), step=2, key=f"tsize_{slide_id}")
+                slide["title_size"] = st.slider("Title Size", 30, 150, slide.get("title_size", 65), step=2, key=f"tsize_{slide_id}")
             with t_col2:
                 slide["title_color"] = st.color_picker("Color", slide.get("title_color", "#2ECC71"), key=f"tcol_{slide_id}")
             with t_col3:
-                slide["title_x"] = st.number_input("Pos X", 0, 1000, slide.get("title_x", 60), step=10, key=f"tx_{slide_id}")
+                slide["title_x"] = st.number_input("Pos X", 0, 2000, slide.get("title_x", 60), step=10, key=f"tx_{slide_id}")
             with t_col4:
-                slide["title_y"] = st.number_input("Pos Y", 0, 1000, slide.get("title_y", 220), step=10, key=f"ty_{slide_id}")
+                slide["title_y"] = st.number_input("Pos Y", 0, 3000, slide.get("title_y", 220), step=10, key=f"ty_{slide_id}")
 
             slide["title_align"] = st.radio(
                 f"Title Alignment #{idx+1}", 
@@ -346,13 +381,13 @@ with col_edit:
             
             b_col1, b_col2, b_col3, b_col4 = st.columns([2, 1.2, 1.5, 1.5])
             with b_col1:
-                slide["content_size"] = st.slider("Body Size", 18, 70, slide.get("content_size", 36), step=2, key=f"bsize_{slide_id}")
+                slide["content_size"] = st.slider("Body Size", 18, 100, slide.get("content_size", 36), step=2, key=f"bsize_{slide_id}")
             with b_col2:
                 slide["content_color"] = st.color_picker("Color", slide.get("content_color", "#FFFFFF"), key=f"bcol_{slide_id}")
             with b_col3:
-                slide["content_x"] = st.number_input("Pos X", 0, 1000, slide.get("content_x", 60), step=10, key=f"bx_{slide_id}")
+                slide["content_x"] = st.number_input("Pos X", 0, 2000, slide.get("content_x", 60), step=10, key=f"bx_{slide_id}")
             with b_col4:
-                slide["content_y"] = st.number_input("Pos Y", 0, 1000, slide.get("content_y", 520), step=10, key=f"by_{slide_id}")
+                slide["content_y"] = st.number_input("Pos Y", 0, 3000, slide.get("content_y", 520), step=10, key=f"by_{slide_id}")
 
             slide["content_align"] = st.radio(
                 f"Body Alignment #{idx+1}", 
@@ -372,18 +407,18 @@ with col_edit:
             slide["brightness"] = st.slider(f"Brightness #{idx+1}", 0.2, 1.8, float(slide.get("brightness", 1.0)), 0.1, key=f"bright_{slide_id}")
 
 with col_preview:
-    st.subheader("👁️ Live Interactive Preview")
+    st.subheader(f"👁️ Live Preview ({'A4 Size' if 'A4' in canvas_format else 'Square Carousel'})")
     for idx, slide in enumerate(st.session_state.slides):
-        preview_img = render_canvas(slide, logo_img, target_size=(450, 450))
+        preview_img = render_canvas(slide, logo_img, target_size=PREVIEW_DIMENSIONS)
         st.image(preview_img, caption=f"Slide {idx+1} Preview")
 
 st.markdown("---")
-st.subheader("📥 Export Options (High Quality 1080p)")
+st.subheader("📥 Export Options")
 
 if st.button("🚀 Prepare High Quality Downloads"):
     generated_images = []
     for idx, slide in enumerate(st.session_state.slides):
-        full_img = render_canvas(slide, logo_img, target_size=(1080, 1080))
+        full_img = render_canvas(slide, logo_img, target_size=EXPORT_DIMENSIONS)
         generated_images.append((f"slide_{idx+1}.png", full_img))
 
     if len(generated_images) == 1:
